@@ -236,19 +236,19 @@ export function ShopProductSection() {
         </div>
       </div>
 
-      {/* ✅ Toast: item added to cart */}
+      {/* ✅ Toast: item added to cart — CENTERED */}
       <AnimatePresence>
         {toastOpen && (
           <motion.div
             role="status"
             aria-live="polite"
-            initial={{ opacity: 0, y: 8, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-4 right-4 z-[100]"
+            className="fixed inset-0 z-[100] grid place-items-center p-4 pointer-events-none"
           >
-            <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-white p-3 shadow-[0_12px_30px_rgba(16,185,129,0.18)]">
+            <div className="pointer-events-auto flex items-start gap-3 rounded-2xl border border-emerald-200 bg-white p-3 shadow-[0_12px_30px_rgba(16,185,129,0.18)]">
               <span className="grid place-items-center w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
                 ✓
               </span>
