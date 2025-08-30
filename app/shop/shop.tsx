@@ -3,12 +3,12 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 export function ShopProductSection() {
-  // ✅ Use the same id/price your checkout expects
+  // ✅ Use ids/prices that your checkout expects
   const product = {
-    id: 'detox-60', // <-- matches checkout catalog
+    id: 'detox-60',
     name: 'Scalp Detox Oil',
     size: '60ml',
     inStock: true,
@@ -37,12 +37,17 @@ export function ShopProductSection() {
   const [open, setOpen] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
 
+  // Toast state
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMsg, setToastMsg] = useState('');
+  const toastTimer = useRef<number | undefined>(undefined);
+
   const priceDisplay = useMemo(
     () => `R${product.price.toLocaleString('en-ZA')}`,
     [product.price]
   );
 
-  // ————— Cart helpers
+  // ——— Cart helpers
   const CART_KEY = 'dn-cart';
   type CartRow = { id: string; qty: number };
 
@@ -64,6 +69,13 @@ export function ShopProductSection() {
     localStorage.setItem(CART_KEY, JSON.stringify(rows));
   };
 
+  const showToast = (message: string) => {
+    setToastMsg(message);
+    setToastOpen(true);
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToastOpen(false), 2200);
+  };
+
   const addToCart = () => {
     const addQty = Math.max(1, Math.min(99, qty));
     const cart = readCart();
@@ -75,17 +87,18 @@ export function ShopProductSection() {
     }
     writeCart(cart);
 
-    // keep your existing event for badges/mini-cart
+    // event for badges/mini-cart
     try {
       window.dispatchEvent(
         new CustomEvent('cart:add', { detail: { id: product.id, qty: addQty } })
       );
-    } catch {
-      /* no-op */
-    }
+    } catch {}
 
     setCelebrate(true);
     setTimeout(() => setCelebrate(false), 1200);
+
+    // ✅ feedback toast
+    showToast(`Added ${addQty} × ${product.name} to cart`);
   };
 
   return (
@@ -222,6 +235,45 @@ export function ShopProductSection() {
           </motion.div>
         </div>
       </div>
+
+      {/* ✅ Toast: item added to cart */}
+      <AnimatePresence>
+        {toastOpen && (
+          <motion.div
+            role="status"
+            aria-live="polite"
+            initial={{ opacity: 0, y: 8, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+            transition={{ duration: 0.2 }}
+            className="fixed bottom-4 right-4 z-[100]"
+          >
+            <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-white p-3 shadow-[0_12px_30px_rgba(16,185,129,0.18)]">
+              <span className="grid place-items-center w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                ✓
+              </span>
+              <div className="pr-2">
+                <div className="text-sm font-medium text-emerald-900">Item added to cart</div>
+                <div className="text-xs text-emerald-800/80">{toastMsg}</div>
+                <div className="mt-2 flex gap-2">
+                  <Link
+                    href="/cart"
+                    className="inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs bg-emerald-600 text-white"
+                  >
+                    View cart
+                  </Link>
+                  <button
+                    onClick={() => setToastOpen(false)}
+                    className="inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs border"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

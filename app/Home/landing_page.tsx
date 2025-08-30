@@ -324,154 +324,162 @@ function Header() {
         }
       `}</style>
 
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            className="fixed inset-0 z-[90]"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <div
-              className="absolute inset-0 bg-black/25"
-              onClick={() => setMobileOpen(false)}
-            />
-            <motion.aside
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute right-0 top-0 h-full w-[92%] max-w-sm bg-white shadow-2xl border-l"
+    {/* Mobile Menu */}
+<AnimatePresence initial={false}>
+  {mobileOpen && (
+    <motion.div
+      className="fixed inset-0 z-[90]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={() => setMobileOpen(false)} // click anywhere outside the drawer closes
+    >
+      {/* dimmed backdrop */}
+      <div className="absolute inset-0 bg-black/25" aria-hidden />
+
+      {/* drawer */}
+      <motion.aside
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+        className="absolute right-0 top-0 z-10 h-full w-[92%] max-w-sm bg-white shadow-2xl border-l"
+        onClick={(e) => e.stopPropagation()} // clicks inside don't close
+      >
+        {/* top gradient header */}
+        <div className="relative overflow-hidden">
+          <div className="px-4 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="inline-grid place-items-center w-8 h-8 rounded-xl bg-emerald-600 text-white">
+                🌿
+              </span>
+              <span className="font-semibold text-emerald-950">Menu</span>
+            </div>
+            <button
+              aria-label="Close menu"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMobileOpen(false);
+              }}
+              className="p-2 rounded-xl border hover:bg-emerald-50"
+              type="button"
             >
-              {/* top gradient header */}
-              <div className="relative overflow-hidden">
-                <div className="px-4 h-16 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-grid place-items-center w-8 h-8 rounded-xl bg-emerald-600 text-white">
-                      🌿
-                    </span>
-                    <span className="font-semibold text-emerald-950">Menu</span>
-                  </div>
-                  <button
-                    aria-label="Close menu"
-                    onClick={() => setMobileOpen(false)}
-                    className="p-2 rounded-xl border hover:bg-emerald-50"
-                  >
-                    <IconClose className="w-5 h-5" />
-                  </button>
-                </div>
-                <div
-                  aria-hidden
-                  className="absolute -top-12 -right-12 w-48 h-48 rounded-full blur-3xl"
-                  style={{
-                    background:
-                      'radial-gradient(circle at 60% 40%, rgba(16,185,129,0.25), rgba(234,179,8,0.18))',
-                  }}
+              <IconClose className="w-5 h-5" />
+            </button>
+          </div>
+          <div
+            aria-hidden
+            className="absolute -top-12 -right-12 w-48 h-48 rounded-full blur-3xl"
+            style={{
+              background:
+                'radial-gradient(circle at 60% 40%, rgba(16,185,129,0.25), rgba(234,179,8,0.18))',
+            }}
+          />
+        </div>
+
+        {/* quick links */}
+        <div className="px-4 mt-4 grid grid-cols-2 gap-3">
+          <a
+            href="#new"
+            onClick={() => setMobileOpen(false)}
+            className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
+          >
+            <div className="text-2xl">🛍️</div>
+            <div className="mt-1 font-medium text-emerald-950">Products</div>
+            <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">
+              Browse →
+            </span>
+          </a>
+          <a
+            href="#faqs"
+            onClick={() => setMobileOpen(false)}
+            className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
+          >
+            <div className="text-2xl">❓</div>
+            <div className="mt-1 font-medium text-emerald-950">FAQs</div>
+            <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">
+              Answers →
+            </span>
+          </a>
+          <a
+            href="#support"
+            onClick={() => setMobileOpen(false)}
+            className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
+          >
+            <div className="text-2xl">💬</div>
+            <div className="mt-1 font-medium text-emerald-950">Support</div>
+            <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">
+              Get help →
+            </span>
+          </a>
+          <Link
+            href="/cart"
+            onClick={() => setMobileOpen(false)}
+            className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
+          >
+            <div className="text-2xl">🛒</div>
+            <div className="mt-1 font-medium text-emerald-950">Cart</div>
+            <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">
+              View →
+            </span>
+          </Link>
+        </div>
+
+        {/* shop list */}
+        <div className="px-4 mt-6">
+          <div className="px-1 text-xs uppercase tracking-wide text-emerald-700/70 mb-2">
+            Shop
+          </div>
+          <div className="divide-y rounded-2xl border">
+            {SHOP_PRODUCTS.map((p) => (
+              <div key={p.id} className="flex items-center gap-3 p-3">
+                <Image
+                  src={p.img}
+                  alt={p.name}
+                  width={48}
+                  height={48}
+                  className="object-contain"
                 />
-              </div>
-
-              {/* quick links as pretty tiles */}
-              <div className="px-4 mt-4 grid grid-cols-2 gap-3">
-                <a
-                  href="#new"
-                  onClick={() => setMobileOpen(false)}
-                  className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
-                >
-                  <div className="text-2xl">🛍️</div>
-                  <div className="mt-1 font-medium text-emerald-950">Products</div>
-                  <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">
-                    Browse →
-                  </span>
-                </a>
-                <a
-                  href="#faqs"
-                  onClick={() => setMobileOpen(false)}
-                  className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
-                >
-                  <div className="text-2xl">❓</div>
-                  <div className="mt-1 font-medium text-emerald-950">FAQs</div>
-                  <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">
-                    Answers →
-                  </span>
-                </a>
-                <a
-                  href="#support"
-                  onClick={() => setMobileOpen(false)}
-                  className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
-                >
-                  <div className="text-2xl">💬</div>
-                  <div className="mt-1 font-medium text-emerald-950">Support</div>
-                  <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">
-                    Get help →
-                  </span>
-                </a>
-                <Link
-                  href="/cart"
-                  onClick={() => setMobileOpen(false)}
-                  className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
-                >
-                  <div className="text-2xl">🛒</div>
-                  <div className="mt-1 font-medium text-emerald-950">Cart</div>
-                  <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">
-                    View →
-                  </span>
-                </Link>
-              </div>
-
-              {/* shop list */}
-              <div className="px-4 mt-6">
-                <div className="px-1 text-xs uppercase tracking-wide text-emerald-700/70 mb-2">
-                  Shop
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-emerald-950">
+                    {p.name}
+                  </div>
+                  <div className="text-xs text-emerald-800/70">
+                    {p.detail} · {p.price}
+                  </div>
                 </div>
-                <div className="divide-y rounded-2xl border">
-                  {SHOP_PRODUCTS.map((p) => (
-                    <div key={p.id} className="flex items-center gap-3 p-3">
-                      <Image
-                        src={p.img}
-                        alt={p.name}
-                        width={48}
-                        height={48}
-                        className="object-contain"
-                      />
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-emerald-950">
-                          {p.name}
-                        </div>
-                        <div className="text-xs text-emerald-800/70">
-                          {p.detail} · {p.price}
-                        </div>
-                      </div>
-                      <AddButton productId={p.id} />
-                    </div>
-                  ))}
-                </div>
+                <AddButton productId={p.id} />
               </div>
+            ))}
+          </div>
+        </div>
 
-              {/* footer ctas */}
-              <div className="px-4 pt-4 pb-5 mt-6">
-                <div className="grid grid-cols-2 gap-2">
-                  <Link
-                    href="/shop"
-                    onClick={() => setMobileOpen(false)}
-                    className="inline-flex items-center justify-center rounded-xl px-4 py-3 bg-emerald-600 text-white shadow"
-                  >
-                    Visit Shop
-                  </Link>
-                  <a
-                    href="https://wa.me/27672943837"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center justify-center rounded-xl px-4 py-3 border"
-                  >
-                    WhatsApp
-                  </a>
-                </div>
-              </div>
-            </motion.aside>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {/* footer ctas */}
+        <div className="px-4 pt-4 pb-5 mt-6">
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              href="/shop"
+              onClick={() => setMobileOpen(false)}
+              className="inline-flex items-center justify-center rounded-xl px-4 py-3 bg-emerald-600 text-white shadow"
+            >
+              Visit Shop
+            </Link>
+            <a
+              href="https://wa.me/27672943837"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center rounded-xl px-4 py-3 border"
+              onClick={() => setMobileOpen(false)}
+            >
+              WhatsApp
+            </a>
+          </div>
+        </div>
+      </motion.aside>
+    </motion.div>
+  )}
+</AnimatePresence>
+
     </motion.header>
   );
 }
