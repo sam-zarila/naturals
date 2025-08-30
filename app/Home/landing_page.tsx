@@ -136,7 +136,7 @@ export default function LandingPage() {
           />
           <Header />
           <Hero />
-        
+
           <OrganicIntro />
           <TransformCTA />
           <Testimonials />
@@ -179,7 +179,7 @@ const SHOP_PRODUCTS: Array<{
     name: 'Scalp Detox Oil',
     detail: 'Hydration · 60ml',
     price: 'R260',
-    img: '/products/scalp-detox-oil-60ml.png',
+    img: '/products/hair-growth-oil-100ml.png',
   },
 ];
 
@@ -236,6 +236,15 @@ function Header() {
     };
   }, [mobileOpen]);
 
+  // Escape to close menu
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   // open mini cart when items are added
   useEffect(() => {
     const onAdd = (e: Event) => {
@@ -249,20 +258,21 @@ function Header() {
   }, [cart]);
 
   return (
-   <motion.header style={headerStyle} className="sticky top-0 z-[80] border-b relative">
+    <motion.header style={headerStyle} className="sticky top-0 z-[80] border-b relative">
       {/* inner bar */}
-      <div className="relative max-w-6xl mx-auto px-3 sm:px-4 h-16 grid grid-cols-3 items-center">
-        {/* left: logo/brand */}
+      <div className="relative max-w-6xl mx-auto px-3 sm:px-4 h-16 grid grid-cols-[auto_1fr_auto] items-center">
+        {/* left: logo/brand (bigger logo) */}
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/" className="flex items-center gap-2 min-w-0">
             <Image
               src="/logo.png"
               alt="Delightful Naturals"
-              width={32}
-              height={32}
+              width={100}
+              height={100}
               className="rounded"
+              priority
             />
-            <span className="hidden xs:inline font-semibold text-emerald-900 truncate">
+            <span className="hidden xs:inline font-semibold text-emerald-900 truncate text-base">
               Delightful Naturals
             </span>
           </Link>
@@ -285,23 +295,21 @@ function Header() {
           <ShopMenu />
         </nav>
 
-        {/* right: search + cart; hamburger at far right */}
-        {/* right: cart + hamburger pinned to far right */}
-<div className="relative flex items-center justify-end gap-3 -mr-3 sm:-mr-6">
-  <CartIcon className="w-5 h-5 text-emerald-800/80" />
+        {/* right: cart + hamburger pinned to far right edge */}
+        <div className="relative flex items-center justify-end gap-3 justify-self-end -mr-3 sm:-mr-6">
+          <CartIcon className="w-5 h-5 text-emerald-800/80" />
 
-  <motion.button
-    whileTap={{ scale: 0.96 }}
-    onClick={() => setMobileOpen(true)}
-    aria-label="Open menu"
-    className="md:hidden inline-grid place-items-center w-10 h-10 rounded-2xl bg-white border border-emerald-100 shadow-[0_6px_18px_rgba(16,185,129,0.15)] ring-1 ring-emerald-200/40"
-  >
-    <IconMenu className="w-5 h-5 text-emerald-800" />
-  </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+            className="md:hidden inline-grid place-items-center w-11 h-11 rounded-2xl bg-white border border-emerald-100 shadow-[0_6px_18px_rgba(16,185,129,0.15)] ring-1 ring-emerald-200/40"
+          >
+            <IconMenu className="w-6 h-6 text-emerald-800" />
+          </motion.button>
 
-  <CartDropdown open={cartOpen} onClose={() => setCartOpen(false)} />
-</div>
-
+          <CartDropdown open={cartOpen} onClose={() => setCartOpen(false)} />
+        </div>
       </div>
 
       <style jsx>{`
@@ -324,7 +332,8 @@ function Header() {
         }
       `}</style>
 
-    {/* Mobile Menu */}
+      {/* Mobile Menu */}
+     {/* Mobile Menu */}
 <AnimatePresence initial={false}>
   {mobileOpen && (
     <motion.div
@@ -332,19 +341,26 @@ function Header() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      onClick={() => setMobileOpen(false)} // click anywhere outside the drawer closes
+      // no onClick here; we put it on the overlay button to avoid any bubbling quirks
     >
-      {/* dimmed backdrop */}
-      <div className="absolute inset-0 bg-black/25" aria-hidden />
+      {/* clickable backdrop */}
+      <button
+        type="button"
+        aria-label="Close menu"
+        onClick={() => setMobileOpen(false)}
+        className="absolute inset-0 bg-black/25"
+      />
 
-      {/* drawer */}
+      {/* right-side drawer */}
       <motion.aside
+        role="dialog"
+        aria-modal="true"
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
         className="absolute right-0 top-0 z-10 h-full w-[92%] max-w-sm bg-white shadow-2xl border-l"
-        onClick={(e) => e.stopPropagation()} // clicks inside don't close
+        onClick={(e) => e.stopPropagation()} // keep clicks inside from hitting the overlay
       >
         {/* top gradient header */}
         <div className="relative overflow-hidden">
@@ -485,7 +501,6 @@ function Header() {
 }
 
 /* Icons */
-
 function IconMenu({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
@@ -906,7 +921,7 @@ function Hero() {
           {/* Waves */}
           <motion.div style={{ x: xWaveL }} className="absolute left-[-40px] top-[80px] w-[260px] md:w-[360px] opacity-90">
             <Image
-              src="/hero/wave-left.jpg"
+              src="/hero/hair-growth-oil-100ml.png"
               alt="wave"
               width={360}
               height={240}
@@ -915,7 +930,7 @@ function Hero() {
           </motion.div>
           <motion.div style={{ x: xWaveR }} className="absolute right-[-30px] top-[120px] w-[260px] md:w-[360px] opacity-90">
             <Image
-              src="/hero/wave-right.jpg"
+              src="/hero/hair-growth-oil-100ml.png"
               alt="wave"
               width={360}
               height={240}
@@ -926,7 +941,7 @@ function Hero() {
           {/* Bottle */}
           <motion.div style={{ y: yBottle }} className="absolute inset-0 grid place-items-center">
             <Image
-              src="/hero/bottle.jpg"
+              src="/hero/hair-growth-oil-100ml.png"
               alt="Bottle"
               width={560}
               height={680}
@@ -958,7 +973,7 @@ function Hero() {
           <ProductMiniCard
             name="Scalp Detox Oil"
             price="R260"
-            image="/products/scalp-detox-oil-60ml.jpg"
+            image="/products/hair-growth-oil-100ml.png"
           />
         </div>
       </div>
@@ -1076,7 +1091,7 @@ function TransformCTA() {
             </div>
             <div className="relative h-[220px] sm:h-[260px] md:h-[300px]">
               <Image
-                src="/hero/bottle.jpg"
+                src="/hero/hair-growth-oil-100ml.png"
                 alt="Hair oil bottle"
                 fill
                 sizes="(min-width: 768px) 50vw, 100vw"
@@ -1091,9 +1106,6 @@ function TransformCTA() {
   );
 }
 
-/* Discount strip */
-
-
 /* Organic intro */
 function OrganicIntro() {
   return (
@@ -1102,7 +1114,7 @@ function OrganicIntro() {
       <div className="max-w-6xl mx-auto px-4 py-10 grid md:grid-cols-2 gap-8 items-center">
         <div className="relative">
           <Image
-            src="/decor/olive-blob.png"
+            src="/hero/hair-growth-oil-100ml.png"
             alt="olive"
             width={160}
             height={160}
