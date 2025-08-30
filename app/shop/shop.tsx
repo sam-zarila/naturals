@@ -13,11 +13,11 @@ export function ShopProductSection() {
     size: '60ml',
     inStock: true,
     price: 260, // ZAR
-    image: '/products/scalp-detox-oil-60ml.png',
+    image: '/products/hair-growth-oil-100ml.png',
     gallery: [
-      '/products/scalp-detox-oil-60ml.png',
-      '/hero/bottle.jpg',
-      '/products/scalp-detox-oil-60ml.png',
+      '/products/hair-growth-oil-100ml.png',
+      '/hero/hair-growth-oil-100ml.png',
+      '/products/hair-growth-oil-100ml.png',
     ],
     blurb:
       'A purifying scalp treatment that removes buildup, balances oil production, and creates the optimal environment for healthy hair growth. Infused with clarifying botanicals and nourishing oils.',
@@ -73,7 +73,7 @@ export function ShopProductSection() {
     setToastMsg(message);
     setToastOpen(true);
     if (toastTimer.current) window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToastOpen(false), 2200);
+    toastTimer.current = window.setTimeout(() => setToastOpen(false), 6200);
   };
 
   const addToCart = () => {
@@ -95,7 +95,7 @@ export function ShopProductSection() {
     } catch {}
 
     setCelebrate(true);
-    setTimeout(() => setCelebrate(false), 1200);
+    setTimeout(() => setCelebrate(false), 9200);
 
     // ✅ feedback toast
     showToast(`Added ${addQty} × ${product.name} to cart`);
@@ -116,7 +116,7 @@ export function ShopProductSection() {
       />
 
       <div className="max-w-6xl mx-auto px-4 py-10 md:py-14">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 ga p-8 items-start">
           {/* ——— Left: Gallery Card */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
