@@ -267,8 +267,8 @@ function Header() {
             <Image
               src="/Layer.png"
               alt="Delightful Naturals"
-              width={50}
-              height={50}
+              width={20}
+              height={20}
               className="rounded"
               priority
             />
