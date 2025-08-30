@@ -136,7 +136,7 @@ export default function LandingPage() {
           />
           <Header />
           <Hero />
-          <DiscountStrip />
+        
           <OrganicIntro />
           <TransformCTA />
           <Testimonials />
@@ -249,7 +249,7 @@ function Header() {
   }, [cart]);
 
   return (
-    <motion.header style={headerStyle} className="sticky top-0 z-[80] border-b">
+   <motion.header style={headerStyle} className="sticky top-0 z-[80] border-b relative">
       {/* inner bar */}
       <div className="relative max-w-6xl mx-auto px-3 sm:px-4 h-16 grid grid-cols-3 items-center">
         {/* left: logo/brand */}
@@ -286,21 +286,22 @@ function Header() {
         </nav>
 
         {/* right: search + cart; hamburger at far right */}
-        <div className="relative flex items-center justify-end gap-3 pr-12 md:pr-0">
-          <IconSearch className="w-5 h-5 text-emerald-800/80 md:mr-1" />
-          <CartIcon className="w-5 h-5 text-emerald-800/80" />
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-            className="md:hidden absolute right-2 top-1/2 -translate-y-1/2 inline-grid place-items-center w-10 h-10 rounded-2xl bg-white border border-emerald-100 shadow-[0_6px_18px_rgba(16,185,129,0.15)] ring-1 ring-emerald-200/40"
-          >
-            <IconMenu className="w-5 h-5 text-emerald-800" />
-          </motion.button>
+        {/* right: cart + hamburger pinned to far right */}
+<div className="relative flex items-center justify-end gap-3 -mr-3 sm:-mr-6">
+  <CartIcon className="w-5 h-5 text-emerald-800/80" />
 
-          {/* cart dropdown (desktop) */}
-          <CartDropdown open={cartOpen} onClose={() => setCartOpen(false)} />
-        </div>
+  <motion.button
+    whileTap={{ scale: 0.96 }}
+    onClick={() => setMobileOpen(true)}
+    aria-label="Open menu"
+    className="md:hidden inline-grid place-items-center w-10 h-10 rounded-2xl bg-white border border-emerald-100 shadow-[0_6px_18px_rgba(16,185,129,0.15)] ring-1 ring-emerald-200/40"
+  >
+    <IconMenu className="w-5 h-5 text-emerald-800" />
+  </motion.button>
+
+  <CartDropdown open={cartOpen} onClose={() => setCartOpen(false)} />
+</div>
+
       </div>
 
       <style jsx>{`
@@ -476,18 +477,7 @@ function Header() {
 }
 
 /* Icons */
-function IconSearch({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className}>
-      <path
-        d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm10 2-5.4-5.4"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
+
 function IconMenu({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
@@ -1094,21 +1084,7 @@ function TransformCTA() {
 }
 
 /* Discount strip */
-function DiscountStrip() {
-  return (
-    <section className="max-w-6xl mx-auto px-4 -mt-4 md:-mt-6">
-      <motion.div
-        initial={{ scale: 0.96, opacity: 0 }}
-        whileInView={{ scale: 1, opacity: 1 }}
-        viewport={{ once: true }}
-        className="inline-flex items-center gap-3 rounded-2xl bg-emerald-600 text-white px-4 py-2 shadow"
-      >
-        <span className="text-sm font-semibold">20% Off</span>
-        <span className="text-xs opacity-90">this week on bundles</span>
-      </motion.div>
-    </section>
-  );
-}
+
 
 /* Organic intro */
 function OrganicIntro() {

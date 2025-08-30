@@ -6,13 +6,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useMemo, useState } from 'react';
 
 export function ShopProductSection() {
-  // —— Demo product (swap values as needed)
+  // ✅ Use the same id/price your checkout expects
   const product = {
-    id: 'detox-65',
+    id: 'detox-60', // <-- matches checkout catalog
     name: 'Scalp Detox Oil',
-    size: '65ml',
+    size: '60ml',
     inStock: true,
-    price: 8000, // MWK
+    price: 260, // ZAR
     image: '/products/scalp-detox-oil-60ml.png',
     gallery: [
       '/products/scalp-detox-oil-60ml.png',
@@ -38,16 +38,52 @@ export function ShopProductSection() {
   const [celebrate, setCelebrate] = useState(false);
 
   const priceDisplay = useMemo(
-    () => `MWK${product.price.toLocaleString('en-US')}`,
+    () => `R${product.price.toLocaleString('en-ZA')}`,
     [product.price]
   );
 
+  // ————— Cart helpers
+  const CART_KEY = 'dn-cart';
+  type CartRow = { id: string; qty: number };
+
+  const readCart = (): CartRow[] => {
+    try {
+      const raw = localStorage.getItem(CART_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed)
+        ? parsed
+            .filter((x) => x && typeof x.id === 'string' && Number.isFinite(x.qty))
+            .map((x) => ({ id: x.id, qty: Math.max(1, Math.min(99, Number(x.qty))) }))
+        : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const writeCart = (rows: CartRow[]) => {
+    localStorage.setItem(CART_KEY, JSON.stringify(rows));
+  };
+
   const addToCart = () => {
+    const addQty = Math.max(1, Math.min(99, qty));
+    const cart = readCart();
+    const i = cart.findIndex((r) => r.id === product.id);
+    if (i >= 0) {
+      cart[i].qty = Math.max(1, Math.min(99, cart[i].qty + addQty));
+    } else {
+      cart.push({ id: product.id, qty: addQty });
+    }
+    writeCart(cart);
+
+    // keep your existing event for badges/mini-cart
     try {
       window.dispatchEvent(
-        new CustomEvent('cart:add', { detail: { id: product.id, qty } })
+        new CustomEvent('cart:add', { detail: { id: product.id, qty: addQty } })
       );
-    } catch {}
+    } catch {
+      /* no-op */
+    }
+
     setCelebrate(true);
     setTimeout(() => setCelebrate(false), 1200);
   };
@@ -87,7 +123,9 @@ export function ShopProductSection() {
               />
               {/* corner badges */}
               <div className="absolute left-4 top-4 flex gap-2">
-                <span className="rounded-full bg-emerald-600 text-white text-[11px] px-2 py-1">In Stock</span>
+                <span className="rounded-full bg-emerald-600 text-white text-[11px] px-2 py-1">
+                  {product.inStock ? 'In Stock' : 'Out of Stock'}
+                </span>
                 <span className="rounded-full bg-black/80 text-white text-[11px] px-2 py-1">Best Seller</span>
               </div>
             </div>
@@ -99,10 +137,9 @@ export function ShopProductSection() {
                   key={src + i}
                   onClick={() => setActive(i)}
                   className={`relative aspect-square rounded-xl border transition ${
-                    active === i
-                      ? 'border-neutral-900'
-                      : 'border-neutral-200 hover:border-neutral-300'
+                    active === i ? 'border-neutral-900' : 'border-neutral-200 hover:border-neutral-300'
                   }`}
+                  aria-label={`Show image ${i + 1}`}
                 >
                   <Image src={src} alt="" fill className="object-contain p-2" />
                 </button>
@@ -127,7 +164,9 @@ export function ShopProductSection() {
             <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
               <span className="text-sky-600">{product.size}</span>
               <span className="text-neutral-400">•</span>
-              <span className="text-neutral-500">{product.inStock ? 'In Stock' : 'Out of Stock'}</span>
+              <span className="text-neutral-500">
+                {product.inStock ? 'In Stock' : 'Out of Stock'}
+              </span>
               <span className="text-neutral-400">•</span>
               <Rating rating={product.rating} reviews={product.reviews} />
             </div>
@@ -161,17 +200,11 @@ export function ShopProductSection() {
             </ShinyButton>
 
             {/* confetti */}
-            <AnimatePresence>
-              {celebrate && <ConfettiBurst key="confetti" />}
-            </AnimatePresence>
+            <AnimatePresence>{celebrate && <ConfettiBurst key="confetti" />}</AnimatePresence>
 
             {/* How to use */}
             <div className="mt-4 md:w-[420px]">
-              <Accordion
-                title="How to use"
-                open={open}
-                onToggle={() => setOpen((v) => !v)}
-              >
+              <Accordion title="How to use" open={open} onToggle={() => setOpen((v) => !v)}>
                 <ul className="list-disc list-inside space-y-1 text-sm text-neutral-700">
                   {product.howToUse.map((step) => (
                     <li key={step}>{step}</li>
@@ -193,7 +226,7 @@ export function ShopProductSection() {
   );
 }
 
-/* —————————————————————— UI atoms —————————————————————— */
+/* ——— UI atoms ——— */
 
 function Rating({ rating, reviews }: { rating: number; reviews: number }) {
   const full = Math.floor(rating);
@@ -260,7 +293,6 @@ function ShinyButton({
       onClick={onClick}
       className={`relative inline-flex h-11 items-center justify-center rounded-full bg-black text-white px-6 text-sm font-medium shadow-md overflow-hidden ${className}`}
     >
-      {/* animated shine */}
       <motion.span
         aria-hidden
         className="absolute inset-y-0 left-0 w-1/3 -skew-x-12 bg-white/20"
@@ -345,9 +377,7 @@ function ConfettiBurst() {
               transition={{ duration: 1.1, ease: 'easeOut' }}
               className="absolute block w-2 h-2 rounded-sm"
               style={{
-                backgroundColor: ['#10B981', '#F59E0B', '#0EA5E9', '#111827'][
-                  b % 4
-                ],
+                backgroundColor: ['#10B981', '#F59E0B', '#0EA5E9', '#111827'][b % 4],
               }}
             />
           );
