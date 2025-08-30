@@ -265,7 +265,7 @@ function Header() {
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/" className="flex items-center gap-2 min-w-0">
             <Image
-              src="/logo.png"
+              src="/Layer.png"
               alt="Delightful Naturals"
               width={50}
               height={50}
