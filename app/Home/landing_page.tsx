@@ -62,7 +62,7 @@ const CATALOG: Record<string, Product> = {
     name: 'Scalp Detox Oil · 60ml',
     price: 260,
     currency: 'R',
-    img: '/products/scalp-detox-oil-60ml.png',
+    img: '/products/hair-growth-oil-100ml.png',
   },
 };
 
@@ -77,7 +77,7 @@ function CartProvider({ children }: { children: ReactNode }) {
       name: 'Product',
       price: 0,
       currency: 'R' as const,
-      img: '/placeholder.png',
+      img:'/products/hair-growth-oil-100ml.png',
     };
     setItems((prev) => {
       const copy = [...prev];
@@ -296,7 +296,7 @@ function Header() {
         </nav>
 
         {/* right: cart + hamburger pinned to far right edge */}
-        <div className="relative flex items-center justify-end gap-3 justify-self-end -mr-3 sm:-mr-6">
+        <div className="relative flex items-center justify-end gap-3 justify-self-end -mr-0 sm:-mr-6">
           <CartIcon className="w-5 h-5 text-emerald-800/80" />
 
           <motion.button
@@ -1147,7 +1147,7 @@ function OrganicIntro() {
         <div className="relative min-h-[220px]">
           <motion.div {...revealProps} className="absolute right-0 top-0 w-64">
             <Image
-              src="/decor/olives.png"
+              src="/products/hair-growth-oil-100ml.png"
               alt="olives"
               width={256}
               height={256}
