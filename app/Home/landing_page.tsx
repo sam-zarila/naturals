@@ -1115,7 +1115,6 @@ function OrganicIntro() {
       <div className="absolute inset-0 -z-10 pointer-events-none bg-[radial-gradient(600px_400px_at_50%_20%,rgba(16,185,129,0.08),transparent_60%)]" />
       <div className="max-w-6xl mx-auto px-4 py-10 grid md:grid-cols-2 gap-8 items-center">
         <div className="relative">
-        
           <motion.h2
             {...revealProps}
             className="text-2xl md:text-3xl font-bold text-emerald-950"
@@ -1140,14 +1139,19 @@ function OrganicIntro() {
             </Link>
           </motion.div>
         </div>
-        <div className="relative min-h-[220px]">
-          <motion.div {...revealProps} className="absolute right-0 top-0 w-64">
+
+        {/* Image column — centered on mobile, right-aligned on md+ */}
+        <div className="relative min-h-[220px] mt-4 md:mt-0 flex justify-center md:justify-end">
+          <motion.div
+            {...revealProps}
+            className="w-56 sm:w-64 md:w-64 md:absolute md:right-0 md:top-0"
+          >
             <Image
               src="/products/hair-growth-oil-100ml12.jpeg"
               alt="olives"
               width={256}
               height={256}
-              className="w-64 h-auto rounded-lg"
+              className="w-full h-auto rounded-lg mx-auto md:mx-0"
             />
           </motion.div>
         </div>
