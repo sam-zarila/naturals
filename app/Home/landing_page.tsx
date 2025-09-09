@@ -1700,7 +1700,7 @@ function QuoteBlock() {
             “We source organically grown botanicals and bottle in small batches
             to keep every drop potent and fresh.”
           </p>
-          <div className="mt-3 text-sm text-emerald-900/80">— Sister Lesley</div>
+          <div className="mt-3 text-sm text-emerald-900/80">— May</div>
         </motion.div>
       </div>
     </section>

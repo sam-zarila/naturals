@@ -15,9 +15,9 @@ export function ShopProductSection() {
     price: 260, // ZAR
     image: '/products/hair-growth-oil-100ml.png',
     gallery: [
-      '/products/hair-growth-oil-100ml.png',
-      '/hero/hair-growth-oil-100ml.png',
-      '/products/hair-growth-oil-100ml.png',
+      '/products/hair-growth-oil-100ml.jpeg',
+      '/hero/hair-growth-oil-100ml2.jpeg',
+      '/products/hair-growth-oil-100ml.jpeg',
     ],
     blurb:
       'A purifying scalp treatment that removes buildup, balances oil production, and creates the optimal environment for healthy hair growth. Infused with clarifying botanicals and nourishing oils.',
