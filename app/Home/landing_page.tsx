@@ -921,34 +921,35 @@ function Hero() {
           {/* Waves */}
           <motion.div style={{ x: xWaveL }} className="absolute left-[-40px] top-[80px] w-[260px] md:w-[360px] opacity-90">
             <Image
-              src="/hero/hair-growth-oil-100ml.png"
+              src="/hero/hair-growth-oil-100ml.jpeg"
               alt="wave"
               width={360}
               height={240}
-              className="w-full h-auto"
+              className="w-full h-auto rounded-lg"
             />
           </motion.div>
           <motion.div style={{ x: xWaveR }} className="absolute right-[-30px] top-[120px] w-[260px] md:w-[360px] opacity-90">
             <Image
-              src="/hero/hair-growth-oil-100ml.png"
+              src="/hero/hair-growth-oil-100ml1.jpeg"
               alt="wave"
               width={360}
               height={240}
-              className="w-full h-auto"
+              className="w-full h-auto rounded-lg"
+              
             />
           </motion.div>
 
           {/* Bottle */}
-          <motion.div style={{ y: yBottle }} className="absolute inset-0 grid place-items-center">
+          {/* <motion.div style={{ y: yBottle }} className="absolute inset-0 grid place-items-center">
             <Image
-              src="/hero/hair-growth-oil-100ml.png"
+              src="/hero/hair-growth-oil-100ml2.jpg"
               alt="Bottle"
               width={560}
               height={680}
               className="w-[220px] md:w-[320px] h-auto drop-shadow-[0_24px_50px_rgba(0,0,0,0.25)]"
               priority
             />
-          </motion.div>
+          </motion.div> */}
 
           {/* Halo */}
           <motion.div aria-hidden style={{ opacity: haloPulse }} className="absolute inset-0">
@@ -964,16 +965,17 @@ function Hero() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 pb-12">
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid sm:grid-cols-2 gap-4 rounded-lg">
           <ProductMiniCard
             name="Hair Growth Oil"
             price="R300"
-            image="/products/hair-growth-oil-100ml.png"
+            image="/products/hair-growth-oil-100ml.jpeg"
+            
           />
           <ProductMiniCard
             name="Scalp Detox Oil"
             price="R260"
-            image="/products/hair-growth-oil-100ml.png"
+            image="/products/hair-growth-oil-100ml1.jpeg"
           />
         </div>
       </div>
@@ -1029,7 +1031,7 @@ function ProductMiniCard({
         alt={name}
         width={56}
         height={56}
-        className="object-contain w-14 h-14"
+        className="object-contain w-14 h-14 rounded-xl"
       />
       <div className="flex-1">
         <div className="font-medium text-emerald-950">{name}</div>
@@ -1091,7 +1093,7 @@ function TransformCTA() {
             </div>
             <div className="relative h-[220px] sm:h-[260px] md:h-[300px]">
               <Image
-                src="/hero/hair-growth-oil-100ml.png"
+                src="/hero/hair-growth-oil-100ml3.jpeg"
                 alt="Hair oil bottle"
                 fill
                 sizes="(min-width: 768px) 50vw, 100vw"
@@ -1113,13 +1115,7 @@ function OrganicIntro() {
       <div className="absolute inset-0 -z-10 pointer-events-none bg-[radial-gradient(600px_400px_at_50%_20%,rgba(16,185,129,0.08),transparent_60%)]" />
       <div className="max-w-6xl mx-auto px-4 py-10 grid md:grid-cols-2 gap-8 items-center">
         <div className="relative">
-          <Image
-            src="/hero/hair-growth-oil-100ml.png"
-            alt="olive"
-            width={160}
-            height={160}
-            className="absolute -top-10 -left-8 w-40 h-auto opacity-80"
-          />
+        
           <motion.h2
             {...revealProps}
             className="text-2xl md:text-3xl font-bold text-emerald-950"
@@ -1147,11 +1143,11 @@ function OrganicIntro() {
         <div className="relative min-h-[220px]">
           <motion.div {...revealProps} className="absolute right-0 top-0 w-64">
             <Image
-              src="/products/hair-growth-oil-100ml.png"
+              src="/products/hair-growth-oil-100ml12.jpeg"
               alt="olives"
               width={256}
               height={256}
-              className="w-64 h-auto"
+              className="w-64 h-auto rounded-lg"
             />
           </motion.div>
         </div>
@@ -1401,6 +1397,44 @@ function FAQItem({
 
 /* Contact */
 function ContactSection() {
+  const [submitting, setSubmitting] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    subject: '',
+    message: '',
+    honey: '', // honeypot
+  });
+
+  const onChange =
+    (key: keyof typeof form) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setForm((f) => ({ ...f, [key]: e.target.value }));
+    };
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    // simple client-side guard
+    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
+      setError('Please fill in your name, email, and message.');
+      return;
+    }
+    if (form.honey) return; // bot trap
+
+    setSubmitting(true);
+
+    // Simulate sending (swap with your real API call)
+    setTimeout(() => {
+      setSubmitting(false);
+      setSent(true);
+    }, 1200);
+  };
+
   return (
     <section id="contact" className="relative">
       <div className="max-w-6xl mx-auto px-4 py-16 md:py-20">
@@ -1415,6 +1449,7 @@ function ContactSection() {
             animate={{ x: [0, 10, -6, 0], y: [0, 6, -10, 0] }}
             transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
           />
+
           <motion.h3
             {...revealProps}
             className="text-2xl md:text-3xl font-bold text-emerald-950"
@@ -1428,11 +1463,13 @@ function ContactSection() {
           >
             We’re happy to help with product questions and personalised routines.
           </motion.p>
+
           <motion.div
             {...revealProps}
             transition={{ delay: 0.1 }}
             className="mt-6 grid sm:grid-cols-2 gap-6"
           >
+            {/* Phone & WhatsApp card (unchanged) */}
             <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-sm">
               <div className="font-medium text-emerald-950">Phone & WhatsApp</div>
               <a className="mt-1 block underline" href="tel:+27672943837">
@@ -1446,15 +1483,140 @@ function ContactSection() {
               >
                 Chat on WhatsApp
               </a>
+
+              <div className="mt-5 text-sm text-emerald-900/80">
+                Prefer email? Use the form and we’ll get back to you shortly.
+              </div>
             </div>
+
+            {/* Contact Form card (replaces Email card) */}
             <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-sm">
-              <div className="font-medium text-emerald-950">Email</div>
-              <a className="mt-1 block underline" href="mailto:hello@delightfulnaturals.co.za">
-                hello@delightfulnaturals.co.za
-              </a>
-              <p className="mt-2 text-sm text-emerald-900/80">
-                We usually reply within 24 hours.
-              </p>
+              {/* Success banner */}
+              <AnimatePresence>
+                {sent && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 px-3 py-2 text-sm"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    ✅ Message sent! We’ll reply to <span className="font-medium">{form.email}</span>.
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Error note */}
+              {error && (
+                <div className="mb-3 rounded-xl border border-red-200 bg-red-50 text-red-900 px-3 py-2 text-sm">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={onSubmit} className="space-y-3">
+                {/* Honeypot */}
+                <input
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={form.honey}
+                  onChange={onChange('honey')}
+                  className="hidden"
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex flex-col">
+                    <label className="text-xs font-medium text-emerald-900/80 mb-1">
+                      Full name *
+                    </label>
+                    <input
+                      type="text"
+                      value={form.name}
+                      onChange={onChange('name')}
+                      required
+                      placeholder="e.g. Lesley M."
+                      className="rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-[15px] shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div className="flex flex-col">
+                    <label className="text-xs font-medium text-emerald-900/80 mb-1">
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={onChange('email')}
+                      required
+                      placeholder="you@example.com"
+                      className="rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-[15px] shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex flex-col">
+                    <label className="text-xs font-medium text-emerald-900/80 mb-1">
+                      Phone (optional)
+                    </label>
+                    <input
+                      type="tel"
+                      value={form.phone}
+                      onChange={onChange('phone')}
+                      placeholder="+27 ..."
+                      className="rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-[15px] shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div className="flex flex-col">
+                    <label className="text-xs font-medium text-emerald-900/80 mb-1">
+                      Subject
+                    </label>
+                    <input
+                      type="text"
+                      value={form.subject}
+                      onChange={onChange('subject')}
+                      placeholder="Question about products"
+                      className="rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-[15px] shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col">
+                  <label className="text-xs font-medium text-emerald-900/80 mb-1">
+                    Message *
+                  </label>
+                  <textarea
+                    value={form.message}
+                    onChange={onChange('message')}
+                    required
+                    placeholder="Tell us how we can help…"
+                    rows={5}
+                    className="rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-[15px] shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+                  <p className="text-xs text-emerald-900/70">
+                    We’ll use your details only to respond to this message.
+                  </p>
+
+                  <motion.button
+                    whileHover={{ scale: sent ? 1 : 1.02 }}
+                    whileTap={{ scale: sent ? 1 : 0.98 }}
+                    type="submit"
+                    disabled={submitting || sent}
+                    className={`relative inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm shadow text-white ${
+                      sent
+                        ? 'bg-emerald-700'
+                        : 'bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500'
+                    } disabled:opacity-70`}
+                  >
+                    {submitting ? 'Sending…' : sent ? 'Sent' : 'Send message'}
+                  </motion.button>
+                </div>
+              </form>
             </div>
           </motion.div>
         </div>
@@ -1462,6 +1624,7 @@ function ContactSection() {
     </section>
   );
 }
+
 
 /* Support */
 function SupportSection() {
