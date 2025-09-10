@@ -77,7 +77,7 @@ function CartProvider({ children }: { children: ReactNode }) {
       name: 'Product',
       price: 0,
       currency: 'R' as const,
-      img:'/products/hair-growth-oil-100ml.png',
+      img: '/products/hair-growth-oil-100ml.png',
     };
     setItems((prev) => {
       const copy = [...prev];
@@ -124,9 +124,7 @@ export default function LandingPage() {
   const { scrollYProgress } = useScroll();
 
   return (
-    <MotionConfig
-      transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-    >
+    <MotionConfig transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>
       <CartProvider>
         <main className="relative overflow-x-clip">
           <style jsx global>{`html { scroll-behavior: smooth; }`}</style>
@@ -140,6 +138,10 @@ export default function LandingPage() {
           <OrganicIntro />
           <TransformCTA />
           <Testimonials />
+
+          {/* New Blog section */}
+          <BlogSection />
+
           <FAQSection />
           <ContactSection />
           <SupportSection />
@@ -209,7 +211,6 @@ function Header() {
     ['0 0 0 rgba(0,0,0,0)', '0 12px 34px rgba(0,0,0,0.08)'],
   );
 
-  // detect mobile to force solid header
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 767px)');
     const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
@@ -236,7 +237,7 @@ function Header() {
     };
   }, [mobileOpen]);
 
-  // Escape to close menu
+  // close with ESC
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setMobileOpen(false);
@@ -261,7 +262,7 @@ function Header() {
     <motion.header style={headerStyle} className="sticky top-0 z-[80] border-b relative">
       {/* inner bar */}
       <div className="relative max-w-6xl mx-auto px-3 sm:px-4 h-16 grid grid-cols-[auto_1fr_auto] items-center">
-        {/* left: logo/brand (bigger logo) */}
+        {/* left: logo/brand (unchanged) */}
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/" className="flex items-center gap-2 min-w-0">
             <Image
@@ -280,18 +281,10 @@ function Header() {
 
         {/* center: (desktop nav only) */}
         <nav className="hidden md:flex items-center justify-center gap-8">
-          <a href="#" className="navlink">
-            Company
-          </a>
-          <a href="#new" className="navlink">
-            Products
-          </a>
-          <a href="#faqs" className="navlink">
-            FAQ
-          </a>
-          <a href="#support" className="navlink">
-            Support
-          </a>
+          <a href="#" className="navlink">Company</a>
+          <a href="#new" className="navlink">Products</a>
+          <a href="#faqs" className="navlink">FAQ</a>
+          <a href="#support" className="navlink">Support</a>
           <ShopMenu />
         </nav>
 
@@ -333,169 +326,166 @@ function Header() {
       `}</style>
 
       {/* Mobile Menu */}
-     {/* Mobile Menu */}
-<AnimatePresence initial={false}>
-  {mobileOpen && (
-    <motion.div
-      className="fixed inset-0 z-[90]"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      // no onClick here; we put it on the overlay button to avoid any bubbling quirks
-    >
-      {/* clickable backdrop */}
-      <button
-        type="button"
-        aria-label="Close menu"
-        onClick={() => setMobileOpen(false)}
-        className="absolute inset-0 bg-black/25"
-      />
-
-      {/* right-side drawer */}
-      <motion.aside
-        role="dialog"
-        aria-modal="true"
-        initial={{ x: '100%' }}
-        animate={{ x: 0 }}
-        exit={{ x: '100%' }}
-        transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-        className="absolute right-0 top-0 z-10 h-full w-[92%] max-w-sm bg-white shadow-2xl border-l"
-        onClick={(e) => e.stopPropagation()} // keep clicks inside from hitting the overlay
-      >
-        {/* top gradient header */}
-        <div className="relative overflow-hidden">
-          <div className="px-4 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="inline-grid place-items-center w-8 h-8 rounded-xl bg-emerald-600 text-white">
-                🌿
-              </span>
-              <span className="font-semibold text-emerald-950">Menu</span>
-            </div>
+      <AnimatePresence initial={false}>
+        {mobileOpen && (
+          <motion.div
+            className="fixed inset-0 z-[90]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            {/* clickable backdrop */}
             <button
-              aria-label="Close menu"
-              onClick={(e) => {
-                e.stopPropagation();
-                setMobileOpen(false);
-              }}
-              className="p-2 rounded-xl border hover:bg-emerald-50"
               type="button"
+              aria-label="Close menu"
+              onClick={() => setMobileOpen(false)}
+              className="absolute inset-0 bg-black/25"
+            />
+
+            {/* right-side drawer */}
+            <motion.aside
+              role="dialog"
+              aria-modal="true"
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute right-0 top-0 z-10 h-full w-[92%] max-w-sm bg-white shadow-2xl border-l"
+              onClick={(e) => e.stopPropagation()}
             >
-              <IconClose className="w-5 h-5" />
-            </button>
-          </div>
-          <div
-            aria-hidden
-            className="absolute -top-12 -right-12 w-48 h-48 rounded-full blur-3xl"
-            style={{
-              background:
-                'radial-gradient(circle at 60% 40%, rgba(16,185,129,0.25), rgba(234,179,8,0.18))',
-            }}
-          />
-        </div>
-
-        {/* quick links */}
-        <div className="px-4 mt-4 grid grid-cols-2 gap-3">
-          <a
-            href="#new"
-            onClick={() => setMobileOpen(false)}
-            className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
-          >
-            <div className="text-2xl">🛍️</div>
-            <div className="mt-1 font-medium text-emerald-950">Products</div>
-            <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">
-              Browse →
-            </span>
-          </a>
-          <a
-            href="#faqs"
-            onClick={() => setMobileOpen(false)}
-            className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
-          >
-            <div className="text-2xl">❓</div>
-            <div className="mt-1 font-medium text-emerald-950">FAQs</div>
-            <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">
-              Answers →
-            </span>
-          </a>
-          <a
-            href="#support"
-            onClick={() => setMobileOpen(false)}
-            className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
-          >
-            <div className="text-2xl">💬</div>
-            <div className="mt-1 font-medium text-emerald-950">Support</div>
-            <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">
-              Get help →
-            </span>
-          </a>
-          <Link
-            href="/cart"
-            onClick={() => setMobileOpen(false)}
-            className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
-          >
-            <div className="text-2xl">🛒</div>
-            <div className="mt-1 font-medium text-emerald-950">Cart</div>
-            <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">
-              View →
-            </span>
-          </Link>
-        </div>
-
-        {/* shop list */}
-        <div className="px-4 mt-6">
-          <div className="px-1 text-xs uppercase tracking-wide text-emerald-700/70 mb-2">
-            Shop
-          </div>
-          <div className="divide-y rounded-2xl border">
-            {SHOP_PRODUCTS.map((p) => (
-              <div key={p.id} className="flex items-center gap-3 p-3">
-                <Image
-                  src={p.img}
-                  alt={p.name}
-                  width={48}
-                  height={48}
-                  className="object-contain"
-                />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-emerald-950">
-                    {p.name}
+              {/* top gradient header */}
+              <div className="relative overflow-hidden">
+                <div className="px-4 h-16 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-grid place-items-center w-8 h-8 rounded-xl bg-emerald-600 text-white">
+                      🌿
+                    </span>
+                    <span className="font-semibold text-emerald-950">Menu</span>
                   </div>
-                  <div className="text-xs text-emerald-800/70">
-                    {p.detail} · {p.price}
-                  </div>
+                  <button
+                    aria-label="Close menu"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMobileOpen(false);
+                    }}
+                    className="p-2 rounded-xl border hover:bg-emerald-50"
+                    type="button"
+                  >
+                    <IconClose className="w-5 h-5" />
+                  </button>
                 </div>
-                <AddButton productId={p.id} />
+                <div
+                  aria-hidden
+                  className="absolute -top-12 -right-12 w-48 h-48 rounded-full blur-3xl"
+                  style={{
+                    background:
+                      'radial-gradient(circle at 60% 40%, rgba(16,185,129,0.25), rgba(234,179,8,0.18))',
+                  }}
+                />
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* footer ctas */}
-        <div className="px-4 pt-4 pb-5 mt-6">
-          <div className="grid grid-cols-2 gap-2">
-            <Link
-              href="/shop"
-              onClick={() => setMobileOpen(false)}
-              className="inline-flex items-center justify-center rounded-xl px-4 py-3 bg-emerald-600 text-white shadow"
-            >
-              Visit Shop
-            </Link>
-            <a
-              href="https://wa.me/27672943837"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center rounded-xl px-4 py-3 border"
-              onClick={() => setMobileOpen(false)}
-            >
-              WhatsApp
-            </a>
-          </div>
-        </div>
-      </motion.aside>
-    </motion.div>
-  )}
-</AnimatePresence>
+              {/* quick links */}
+              <div className="px-4 mt-4 grid grid-cols-2 gap-3">
+                <a
+                  href="#new"
+                  onClick={() => setMobileOpen(false)}
+                  className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
+                >
+                  <div className="text-2xl">🛍️</div>
+                  <div className="mt-1 font-medium text-emerald-950">Products</div>
+                  <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">
+                    Browse →
+                  </span>
+                </a>
+                <a
+                  href="#faqs"
+                  onClick={() => setMobileOpen(false)}
+                  className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
+                >
+                  <div className="text-2xl">❓</div>
+                  <div className="mt-1 font-medium text-emerald-950">FAQs</div>
+                  <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">
+                    Answers →
+                  </span>
+                </a>
+                <a
+                  href="#support"
+                  onClick={() => setMobileOpen(false)}
+                  className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
+                >
+                  <div className="text-2xl">💬</div>
+                  <div className="mt-1 font-medium text-emerald-950">Support</div>
+                  <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">
+                    Get help →
+                  </span>
+                </a>
+                <Link
+                  href="/cart"
+                  onClick={() => setMobileOpen(false)}
+                  className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition"
+                >
+                  <div className="text-2xl">🛒</div>
+                  <div className="mt-1 font-medium text-emerald-950">Cart</div>
+                  <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">
+                    View →
+                  </span>
+                </Link>
+              </div>
 
+              {/* shop list */}
+              <div className="px-4 mt-6">
+                <div className="px-1 text-xs uppercase tracking-wide text-emerald-700/70 mb-2">
+                  Shop
+                </div>
+                <div className="divide-y rounded-2xl border">
+                  {SHOP_PRODUCTS.map((p) => (
+                    <div key={p.id} className="flex items-center gap-3 p-3">
+                      <Image
+                        src={p.img}
+                        alt={p.name}
+                        width={48}
+                        height={48}
+                        className="object-contain"
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-emerald-950">
+                          {p.name}
+                        </div>
+                        <div className="text-xs text-emerald-800/70">
+                          {p.detail} · {p.price}
+                        </div>
+                      </div>
+                      <AddButton productId={p.id} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* footer ctas */}
+              <div className="px-4 pt-4 pb-5 mt-6">
+                <div className="grid grid-cols-2 gap-2">
+                  <Link
+                    href="/shop"
+                    onClick={() => setMobileOpen(false)}
+                    className="inline-flex items-center justify-center rounded-xl px-4 py-3 bg-emerald-600 text-white shadow"
+                  >
+                    Visit Shop
+                  </Link>
+                  <a
+                    href="https://wa.me/27672943837"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center rounded-xl px-4 py-3 border"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    WhatsApp
+                  </a>
+                </div>
+              </div>
+            </motion.aside>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.header>
   );
 }
@@ -504,24 +494,14 @@ function Header() {
 function IconMenu({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
-      <path
-        d="M3 6h18M3 12h18M3 18h18"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
+      <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
 function IconClose({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
-      <path
-        d="M6 6l12 12M6 18L18 6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
+      <path d="M6 6l12 12M6 18L18 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -591,29 +571,17 @@ function CartDropdown({
           className="absolute top-full right-0 mt-3 w-[340px] sm:w-[380px] z-[90]"
         >
           <div className="rounded-2xl border bg-white shadow-2xl overflow-hidden">
-            <div className="px-4 py-3 border-b font-semibold text-emerald-950">
-              Your Cart
-            </div>
+            <div className="px-4 py-3 border-b font-semibold text-emerald-950">Your Cart</div>
 
             {cart.items.length === 0 ? (
-              <div className="px-4 py-8 text-sm text-emerald-900/70">
-                Your cart is empty.
-              </div>
+              <div className="px-4 py-8 text-sm text-emerald-900/70">Your cart is empty.</div>
             ) : (
               <div className="max-h-[320px] overflow-auto divide-y">
                 {cart.items.map((it) => (
                   <div key={it.id} className="flex items-center gap-3 p-3">
-                    <Image
-                      src={it.img}
-                      alt={it.name}
-                      width={48}
-                      height={48}
-                      className="object-contain"
-                    />
+                    <Image src={it.img} alt={it.name} width={48} height={48} className="object-contain" />
                     <div className="flex-1">
-                      <div className="text-sm font-medium text-emerald-950">
-                        {it.name}
-                      </div>
+                      <div className="text-sm font-medium text-emerald-950">{it.name}</div>
                       <div className="text-xs text-emerald-800/70">
                         {it.currency}
                         {it.price.toLocaleString()} × {it.qty}
@@ -627,9 +595,7 @@ function CartDropdown({
                       >
                         −
                       </button>
-                      <div className="w-7 h-7 grid place-items-center text-sm">
-                        {it.qty}
-                      </div>
+                      <div className="w-7 h-7 grid place-items-center text-sm">{it.qty}</div>
                       <button
                         className="w-7 h-7 grid place-items-center hover:bg-emerald-50"
                         onClick={() => cart.setQty(it.id, it.qty + 1)}
@@ -646,9 +612,7 @@ function CartDropdown({
             <div className="px-4 py-3 border-t">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-emerald-900/80">Subtotal</span>
-                <span className="font-semibold text-emerald-950">
-                  R{cart.subtotal.toLocaleString()}
-                </span>
+                <span className="font-semibold text-emerald-950">R{cart.subtotal.toLocaleString()}</span>
               </div>
               <div className="mt-3 flex gap-2">
                 <Link
@@ -735,17 +699,9 @@ function ShopMenu() {
                   key={p.id}
                   className="flex items-center gap-3 p-2 rounded-xl hover:bg-emerald-50/70"
                 >
-                  <Image
-                    src={p.img}
-                    alt={p.name}
-                    width={48}
-                    height={48}
-                    className="object-contain"
-                  />
+                  <Image src={p.img} alt={p.name} width={48} height={48} className="object-contain" />
                   <div className="flex-1">
-                    <div className="text-sm font-medium text-emerald-950">
-                      {p.name}
-                    </div>
+                    <div className="text-sm font-medium text-emerald-950">{p.name}</div>
                     <div className="text-xs text-emerald-800/70">
                       {p.detail} · {p.price}
                     </div>
@@ -754,10 +710,7 @@ function ShopMenu() {
                 </div>
               ))}
               <div className="mt-2 px-2">
-                <Link
-                  href="/shop"
-                  className="inline-flex text-sm text-emerald-700 hover:underline"
-                >
+                <Link href="/shop" className="inline-flex text-sm text-emerald-700 hover:underline">
                   View all →
                 </Link>
               </div>
@@ -777,13 +730,8 @@ function AddButton({ productId }: { productId: string }) {
     const key = 'dn-cart';
     let cart: Array<{ id: string; qty: number }> = [];
     try {
-      cart = JSON.parse(localStorage.getItem(key) || '[]') as Array<{
-        id: string;
-        qty: number;
-      }>;
-    } catch {
-      /* ignore */
-    }
+      cart = JSON.parse(localStorage.getItem(key) || '[]') as Array<{ id: string; qty: number }>;
+    } catch {}
     const i = cart.findIndex((x) => x.id === productId);
     if (i > -1) cart[i].qty += 1;
     else cart.push({ id: productId, qty: 1 });
@@ -795,9 +743,7 @@ function AddButton({ productId }: { productId: string }) {
           detail: { id: productId, qty: 1 },
         }),
       );
-    } catch {
-      /* ignore */
-    }
+    } catch {}
   };
 
   return (
@@ -812,16 +758,9 @@ function AddButton({ productId }: { productId: string }) {
       title="Add to cart"
     >
       <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none">
-        <path
-          d="M12 5v14M5 12h14"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
+        <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       </svg>
-      {ping && (
-        <span className="absolute inline-flex h-full w-full rounded-full border-2 border-emerald-400 animate-ping" />
-      )}
+      {ping && <span className="absolute inline-flex h-full w-full rounded-full border-2 border-emerald-400 animate-ping" />}
     </button>
   );
 }
@@ -935,21 +874,8 @@ function Hero() {
               width={360}
               height={240}
               className="w-full h-auto rounded-lg"
-              
             />
           </motion.div>
-
-          {/* Bottle */}
-          {/* <motion.div style={{ y: yBottle }} className="absolute inset-0 grid place-items-center">
-            <Image
-              src="/hero/hair-growth-oil-100ml2.jpg"
-              alt="Bottle"
-              width={560}
-              height={680}
-              className="w-[220px] md:w-[320px] h-auto drop-shadow-[0_24px_50px_rgba(0,0,0,0.25)]"
-              priority
-            />
-          </motion.div> */}
 
           {/* Halo */}
           <motion.div aria-hidden style={{ opacity: haloPulse }} className="absolute inset-0">
@@ -970,7 +896,6 @@ function Hero() {
             name="Hair Growth Oil"
             price="R300"
             image="/products/hair-growth-oil-100ml.jpeg"
-            
           />
           <ProductMiniCard
             name="Scalp Detox Oil"
@@ -1108,7 +1033,7 @@ function TransformCTA() {
   );
 }
 
-/* Organic intro */
+/* Organic intro (mobile-centered image) */
 function OrganicIntro() {
   return (
     <section className="relative">
@@ -1200,10 +1125,7 @@ function Testimonials() {
   ];
   const [i, setI] = useState(0);
   useEffect(() => {
-    const id = window.setInterval(
-      () => setI((v) => (v + 1) % items.length),
-      4500,
-    );
+    const id = window.setInterval(() => setI((v) => (v + 1) % items.length), 4500);
     return () => window.clearInterval(id);
   }, [items.length]);
 
@@ -1246,12 +1168,8 @@ function Testimonials() {
                   className="w-9 h-9 rounded-full border object-cover"
                 />
                 <div className="text-left">
-                  <div className="text-sm font-medium text-emerald-900">
-                    {items[i].name}
-                  </div>
-                  <div className="text-xs text-emerald-800/70">
-                    {items[i].role}
-                  </div>
+                  <div className="text-sm font-medium text-emerald-900">{items[i].name}</div>
+                  <div className="text-xs text-emerald-800/70">{items[i].role}</div>
                 </div>
                 <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
                   Verified
@@ -1290,13 +1208,169 @@ function Testimonials() {
                   height={32}
                   className="w-8 h-8 rounded-full border object-cover"
                 />
-                <div className="text-sm font-medium text-emerald-900">
-                  {r.name}
-                </div>
+                <div className="text-sm font-medium text-emerald-900">{r.name}</div>
               </div>
               <p className="mt-2 text-sm text-emerald-900/90">{r.text}</p>
             </motion.div>
           ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* =============================================================================
+   BLOG SECTION (expandable "Read more")
+============================================================================= */
+type Post = {
+  id: string;
+  title: string;
+  date?: string;
+  cover?: string;
+  excerpt: string;
+  body: string;
+  tags?: string[];
+};
+
+const POSTS: Post[] = [
+  {
+    id: 'lesley-alchemist',
+    title: 'Lesley May Mpofu — The Luxe Roots Alchemist of Delightful Naturals',
+    date: '09 Sep 2025',
+    cover: '/hero/hair-growth-oil-100ml.png',
+    tags: ['Founder', 'Ayurveda', 'Postpartum'],
+    excerpt:
+      'A visionary with a golden dropper in hand, Lesley is the brain behind Mega Potent Hair Growth Oil — a rich Ayurvedic elixir born from tradition, science, and self-care.',
+    body:
+      "A visionary with a golden dropper in hand, Lesley is the brain behind Mega Potent Hair Growth Oil, a rich Ayurvedic elixir born from tradition, science, and self-care. She’s not just selling hair oil — she’s reviving crowns, one root at a time. Passionate about empowering postpartum moms, nurturing natural hair, and bringing thinning edges back to life, her blend of powerhouse oils and potent herbs screams luxury meets purpose.\n\nRooted in elegance, driven by authenticity, and building her empire drop by drop — Lesley is blending beauty with meaning.",
+  },
+  {
+    id: 'welcome-promise',
+    title: 'Welcome to Delightful Naturals — Every Drop is a Promise',
+    date: '09 Sep 2025',
+    cover: '/hero/hair-growth-oil-100ml.png',
+    tags: ['Our Story', 'Ritual', 'Holistic Care'],
+    excerpt:
+      'Created by Lesley May Mpofu, Mega Potent Hair Growth Oil was born from a personal journey through postpartum shedding, thinning edges, and a passion for holistic care.',
+    body:
+      "Welcome to Delightful Naturals – where every drop is a promise to restore, nourish, and empower.\n\nCreated by Lesley May Mpofu, Mega Potent Hair Growth Oil was born out of a personal journey through postpartum shedding, thinning edges, and a passion for holistic care.\n\nThis handcrafted Ayurvedic blend fuses tradition with luxury — featuring rich oils like castor, flaxseed, jojoba, and herbs like amla, moringa, and hibiscus. It’s designed for women who want results and ritual — a moment of self-care rooted in nature, elegance, and deep restoration.\n\nWhether you're on a journey to regrow, protect, or simply glow — we're here to grow with you.",
+  },
+];
+
+function BlogSection() {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  return (
+    <section className="relative">
+      {/* subtle background glow */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{
+          background:
+            'radial-gradient(700px 500px at 50% -10%, rgba(16,185,129,0.12), transparent 60%)',
+        }}
+      />
+      <div className="max-w-6xl mx-auto px-4 py-12 md:py-16">
+        <div className="text-center">
+          <h2 className="text-2xl md:text-3xl font-bold text-emerald-950">From the Journal</h2>
+          <p className="mt-2 text-emerald-900/80">Stories, rituals, and science behind stronger roots.</p>
+        </div>
+
+        <div className="mt-8 grid gap-5 sm:grid-cols-2">
+          {POSTS.map((post) => {
+            const isOpen = openId === post.id;
+            return (
+              <article
+                key={post.id}
+                className="group relative overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm transition hover:shadow-md"
+              >
+                {/* Cover */}
+                {post.cover && (
+                  <div className="relative h-48 sm:h-56">
+                    <Image
+                      src={post.cover}
+                      alt={post.title}
+                      fill
+                      sizes="(min-width: 640px) 50vw, 100vw"
+                      className="object-cover"
+                      priority={post.id === POSTS[0].id}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-white/0 via-white/0 to-white/0 group-hover:via-white/10 transition" />
+                  </div>
+                )}
+
+                {/* Body */}
+                <div className="p-5 sm:p-6">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-700/70">
+                    {post.date && (
+                      <span className="inline-flex items-center gap-1">
+                        <span>🗓️</span>
+                        {post.date}
+                      </span>
+                    )}
+                    {post.tags?.map((t) => (
+                      <span
+                        key={t}
+                        className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50/50 px-2 py-0.5"
+                      >
+                        #{t}
+                      </span>
+                    ))}
+                  </div>
+
+                  <h3 className="mt-2 text-lg sm:text-xl font-semibold text-emerald-950">
+                    {post.title}
+                  </h3>
+
+                  {/* Collapsible content */}
+                  <div className="mt-2 text-emerald-900/90 text-sm leading-relaxed">
+                    {!isOpen ? <p>{post.excerpt}</p> : null}
+
+                    <AnimatePresence initial={false}>
+                      {isOpen && (
+                        <motion.div
+                          key="content"
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.28 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="max-w-none">
+                            {post.body.split('\n').map((para, i) => (
+                              <p key={i} className="my-3">
+                                {para}
+                              </p>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setOpenId(isOpen ? null : post.id)}
+                      aria-expanded={isOpen}
+                      className="relative inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm bg-emerald-600 text-white shadow hover:scale-[1.02] transition"
+                    >
+                      {isOpen ? 'Read less' : 'Read more'}
+                    </button>
+
+                    <Link
+                      href="/shop"
+                      className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm border border-emerald-200 text-emerald-900 hover:bg-emerald-50 transition"
+                    >
+                      Explore products
+                    </Link>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -1399,7 +1473,7 @@ function FAQItem({
   );
 }
 
-/* Contact */
+/* Contact (with modern, mobile-friendly form) */
 function ContactSection() {
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
@@ -1410,7 +1484,7 @@ function ContactSection() {
     phone: '',
     subject: '',
     message: '',
-    honey: '', // honeypot
+    honey: '',
   });
 
   const onChange =
@@ -1423,16 +1497,15 @@ function ContactSection() {
     e.preventDefault();
     setError(null);
 
-    // simple client-side guard
     if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
       setError('Please fill in your name, email, and message.');
       return;
     }
-    if (form.honey) return; // bot trap
+    if (form.honey) return;
 
     setSubmitting(true);
 
-    // Simulate sending (swap with your real API call)
+    // Simulate sending (replace with your API route)
     setTimeout(() => {
       setSubmitting(false);
       setSent(true);
@@ -1473,7 +1546,7 @@ function ContactSection() {
             transition={{ delay: 0.1 }}
             className="mt-6 grid sm:grid-cols-2 gap-6"
           >
-            {/* Phone & WhatsApp card (unchanged) */}
+            {/* Phone & WhatsApp card */}
             <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-sm">
               <div className="font-medium text-emerald-950">Phone & WhatsApp</div>
               <a className="mt-1 block underline" href="tel:+27672943837">
@@ -1493,9 +1566,8 @@ function ContactSection() {
               </div>
             </div>
 
-            {/* Contact Form card (replaces Email card) */}
+            {/* Contact Form card */}
             <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-sm">
-              {/* Success banner */}
               <AnimatePresence>
                 {sent && (
                   <motion.div
@@ -1511,7 +1583,6 @@ function ContactSection() {
                 )}
               </AnimatePresence>
 
-              {/* Error note */}
               {error && (
                 <div className="mb-3 rounded-xl border border-red-200 bg-red-50 text-red-900 px-3 py-2 text-sm">
                   {error}
@@ -1531,9 +1602,7 @@ function ContactSection() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="flex flex-col">
-                    <label className="text-xs font-medium text-emerald-900/80 mb-1">
-                      Full name *
-                    </label>
+                    <label className="text-xs font-medium text-emerald-900/80 mb-1">Full name *</label>
                     <input
                       type="text"
                       value={form.name}
@@ -1545,9 +1614,7 @@ function ContactSection() {
                   </div>
 
                   <div className="flex flex-col">
-                    <label className="text-xs font-medium text-emerald-900/80 mb-1">
-                      Email *
-                    </label>
+                    <label className="text-xs font-medium text-emerald-900/80 mb-1">Email *</label>
                     <input
                       type="email"
                       value={form.email}
@@ -1561,9 +1628,7 @@ function ContactSection() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="flex flex-col">
-                    <label className="text-xs font-medium text-emerald-900/80 mb-1">
-                      Phone (optional)
-                    </label>
+                    <label className="text-xs font-medium text-emerald-900/80 mb-1">Phone (optional)</label>
                     <input
                       type="tel"
                       value={form.phone}
@@ -1574,9 +1639,7 @@ function ContactSection() {
                   </div>
 
                   <div className="flex flex-col">
-                    <label className="text-xs font-medium text-emerald-900/80 mb-1">
-                      Subject
-                    </label>
+                    <label className="text-xs font-medium text-emerald-900/80 mb-1">Subject</label>
                     <input
                       type="text"
                       value={form.subject}
@@ -1588,9 +1651,7 @@ function ContactSection() {
                 </div>
 
                 <div className="flex flex-col">
-                  <label className="text-xs font-medium text-emerald-900/80 mb-1">
-                    Message *
-                  </label>
+                  <label className="text-xs font-medium text-emerald-900/80 mb-1">Message *</label>
                   <textarea
                     value={form.message}
                     onChange={onChange('message')}
@@ -1602,9 +1663,7 @@ function ContactSection() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
-                  <p className="text-xs text-emerald-900/70">
-                    We’ll use your details only to respond to this message.
-                  </p>
+                  <p className="text-xs text-emerald-900/70">We’ll use your details only to respond to this message.</p>
 
                   <motion.button
                     whileHover={{ scale: sent ? 1 : 1.02 }}
@@ -1628,7 +1687,6 @@ function ContactSection() {
     </section>
   );
 }
-
 
 /* Support */
 function SupportSection() {
@@ -1656,9 +1714,7 @@ function SupportSection() {
     <section id="support" className="relative">
       <div className="max-w-6xl mx-auto px-4 py-12 md:py-16">
         <div className="text-center mb-6">
-          <h2 className="text-2xl md:text-3xl font-bold text-emerald-950">
-            Support
-          </h2>
+          <h2 className="text-2xl md:text-3xl font-bold text-emerald-950">Support</h2>
           <p className="mt-2 text-emerald-900/80">Quick links to common topics.</p>
         </div>
         <div className="grid md:grid-cols-3 gap-4">
@@ -1677,9 +1733,7 @@ function SupportSection() {
               <div className="text-2xl">{c.icon}</div>
               <div className="mt-2 font-semibold text-emerald-950">{c.t}</div>
               <p className="text-sm mt-1 text-emerald-900/80">{c.d}</p>
-              <span className="mt-3 inline-flex text-emerald-700 text-sm">
-                Learn more →
-              </span>
+              <span className="mt-3 inline-flex text-emerald-700 text-sm">Learn more →</span>
             </motion.a>
           ))}
         </div>
@@ -1788,13 +1842,7 @@ function Footer() {
       <div className="max-w-6xl mx-auto px-4 py-10 grid md:grid-cols-4 gap-6 text-sm">
         <div>
           <div className="flex items-center gap-2">
-            <Image
-              src="/logo.png"
-              width={32}
-              height={32}
-              className="rounded"
-              alt="logo"
-            />
+            <Image src="/logo.png" width={32} height={32} className="rounded" alt="logo" />
             <span className="font-semibold">Delightful Naturals</span>
           </div>
           <p className="mt-3 text-emerald-100/80">
@@ -1809,68 +1857,27 @@ function Footer() {
         <div>
           <div className="font-semibold">Quick Links</div>
           <ul className="mt-2 space-y-1">
-            <li>
-              <a href="#" className="hover:underline">
-                Company
-              </a>
-            </li>
-            <li>
-              <a href="#new" className="hover:underline">
-                Products
-              </a>
-            </li>
-            <li>
-              <a href="#best" className="hover:underline">
-                Best Sellers
-              </a>
-            </li>
-            <li>
-              <a href="#faqs" className="hover:underline">
-                FAQ
-              </a>
-            </li>
-            <li>
-              <a href="#support" className="hover:underline">
-                Support
-              </a>
-            </li>
-            <li>
-              <Link href="/shop" className="hover:underline">
-                Shop
-              </Link>
-            </li>
+            <li><a href="#" className="hover:underline">Company</a></li>
+            <li><a href="#new" className="hover:underline">Products</a></li>
+            <li><a href="#best" className="hover:underline">Best Sellers</a></li>
+            <li><a href="#faqs" className="hover:underline">FAQ</a></li>
+            <li><a href="#support" className="hover:underline">Support</a></li>
+            <li><Link href="/shop" className="hover:underline">Shop</Link></li>
           </ul>
         </div>
         <div>
           <div className="font-semibold">Help</div>
           <ul className="mt-2 space-y-1">
-            <li>
-              <a href="#faqs" className="hover:underline">
-                FAQ
-              </a>
-            </li>
-            <li>
-              <a href="#contact" className="hover:underline">
-                Contact
-              </a>
-            </li>
+            <li><a href="#faqs" className="hover:underline">FAQ</a></li>
+            <li><a href="#contact" className="hover:underline">Contact</a></li>
           </ul>
         </div>
         <div>
           <div className="font-semibold">Contact</div>
           <p className="mt-2">
-            Phone:{' '}
-            <a className="underline" href="tel:+27672943837">
-              +27 67 294 3837
-            </a>
+            Phone: <a className="underline" href="tel:+27672943837">+27 67 294 3837</a>
             <br />
-            Email:{' '}
-            <a
-              className="underline"
-              href="mailto:hello@delightfulnaturals.co.za"
-            >
-              hello@delightfulnaturals.co.za
-            </a>
+            Email: <a className="underline" href="mailto:hello@delightfulnaturals.co.za">hello@delightfulnaturals.co.za</a>
           </p>
         </div>
       </div>
