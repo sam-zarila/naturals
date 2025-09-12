@@ -20,6 +20,8 @@ import React, {
   useState,
   ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
+
 
 /* =============================================================================
    Types
@@ -184,11 +186,16 @@ const SHOP_PRODUCTS: Array<{
 /* =============================================================================
    Header (mobile-beautified)
 ============================================================================= */
+/* =============================================================================
+   Header (mobile-beautified) — with hamburger feedback on add-to-cart
+============================================================================= */
 function Header() {
   const { scrollY } = useScroll();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [menuPing, setMenuPing] = useState(false);           // NEW
+  const pingTimer = useRef<number | null>(null);             // NEW
   const cart = useCart();
 
   const bg = useTransform(scrollY, [0, 120], ['rgba(235,244,235,0)', 'rgba(255,255,255,0.9)']);
@@ -231,17 +238,30 @@ function Header() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // open mini cart when items are added
+  // open mini cart + ping hamburger when items are added
   useEffect(() => {
     const onAdd = (e: Event) => {
       const evt = e as CustomEvent<CartAddDetail>;
       const { id, qty = 1 } = (evt.detail || {}) as CartAddDetail;
       if (id) cart.add(id, qty);
       setCartOpen(true);
+
+      // show quick feedback on the hamburger button (mobile)
+      setMenuPing(true);
+      if (pingTimer.current) window.clearTimeout(pingTimer.current);
+      pingTimer.current = window.setTimeout(() => setMenuPing(false), 1200);
     };
     window.addEventListener('cart:add', onAdd as EventListener);
-    return () => window.removeEventListener('cart:add', onAdd as EventListener);
+    return () => {
+      window.removeEventListener('cart:add', onAdd as EventListener);
+      if (pingTimer.current) window.clearTimeout(pingTimer.current);
+    };
   }, [cart]);
+
+  // if menu is opened, clear the ping so it doesn't linger
+  useEffect(() => {
+    if (mobileOpen && menuPing) setMenuPing(false);
+  }, [mobileOpen, menuPing]);
 
   return (
     <motion.header style={headerStyle} className="sticky top-0 z-[80] border-b relative">
@@ -273,8 +293,23 @@ function Header() {
             whileTap={{ scale: 0.96 }}
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
-            className="md:hidden inline-grid place-items-center w-11 h-11 rounded-2xl bg-white border border-emerald-100 shadow-[0_6px_18px_rgba(16,185,129,0.15)] ring-1 ring-emerald-200/40"
+            className="relative md:hidden inline-grid place-items-center w-11 h-11 rounded-2xl bg-white border border-emerald-100 shadow-[0_6px_18px_rgba(16,185,129,0.15)] ring-1 ring-emerald-200/40"
           >
+            {/* feedback ping + badge when item is added */}
+            {menuPing && (
+              <>
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 rounded-2xl ring-2 ring-emerald-400/60 animate-ping"
+                />
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-[3px] rounded-full bg-emerald-600 text-white text-[10px] grid place-items-center"
+                >
+                  {cart.count}
+                </span>
+              </>
+            )}
             <IconMenu className="w-6 h-6 text-emerald-800" />
           </motion.button>
 
@@ -421,6 +456,7 @@ function Header() {
   );
 }
 
+
 /* Icons */
 function IconMenu({ className }: { className?: string }) {
   return (
@@ -479,61 +515,99 @@ function CartIcon({ className }: { className?: string }) {
 /* Cart dropdown panel */
 function CartDropdown({ open, onClose }: { open: boolean; onClose: () => void }) {
   const cart = useCart();
-  return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 6 }}
-          transition={{ duration: 0.18 }}
-          className="absolute top-full right-0 mt-3 w-[340px] sm:w-[380px] z-[90]"
-        >
-          <div className="rounded-2xl border bg-white shadow-2xl overflow-hidden">
-            <div className="px-4 py-3 border-b font-semibold text-emerald-950">Your Cart</div>
 
-            {cart.items.length === 0 ? (
-              <div className="px-4 py-8 text-sm text-emerald-900/70">Your cart is empty.</div>
-            ) : (
-              <div className="max-h-[320px] overflow-auto divide-y">
-                {cart.items.map((it) => (
-                  <div key={it.id} className="flex items-center gap-3 p-3">
-                    <Image src={it.img} alt={it.name} width={48} height={48} className="object-contain" />
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-emerald-950">{it.name}</div>
-                      <div className="text-xs text-emerald-800/70">
-                        {it.currency}
-                        {it.price.toLocaleString()} × {it.qty}
-                      </div>
-                    </div>
-                    <div className="inline-flex items-center rounded-lg border overflow-hidden">
-                      <button className="w-7 h-7 grid place-items-center hover:bg-emerald-50" onClick={() => cart.setQty(it.id, it.qty - 1)} aria-label="Decrease">−</button>
-                      <div className="w-7 h-7 grid place-items-center text-sm">{it.qty}</div>
-                      <button className="w-7 h-7 grid place-items-center hover:bg-emerald-50" onClick={() => cart.setQty(it.id, it.qty + 1)} aria-label="Increase">+</button>
+  if (typeof window === 'undefined') return null; // guard SSR
+  if (!open) return null;
+
+  return createPortal(
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 6 }}
+        transition={{ duration: 0.18 }}
+        // fixed & high z-index so it appears above the hamburger overlay
+        className="fixed top-16 right-3 w-[340px] sm:w-[380px] z-[140]"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="rounded-2xl border bg-white shadow-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b font-semibold text-emerald-950">Your Cart</div>
+
+          {cart.items.length === 0 ? (
+            <div className="px-4 py-8 text-sm text-emerald-900/70">Your cart is empty.</div>
+          ) : (
+            <div className="max-h-[320px] overflow-auto divide-y">
+              {cart.items.map((it) => (
+                <div key={it.id} className="flex items-center gap-3 p-3">
+                  <Image src={it.img} alt={it.name} width={48} height={48} className="object-contain" />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-emerald-950">{it.name}</div>
+                    <div className="text-xs text-emerald-800/70">
+                      {it.currency}
+                      {it.price.toLocaleString()} × {it.qty}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                  <div className="inline-flex items-center rounded-lg border overflow-hidden">
+                    <button
+                      className="w-7 h-7 grid place-items-center hover:bg-emerald-50"
+                      onClick={() => cart.setQty(it.id, it.qty - 1)}
+                      aria-label="Decrease"
+                    >
+                      −
+                    </button>
+                    <div className="w-7 h-7 grid place-items-center text-sm">{it.qty}</div>
+                    <button
+                      className="w-7 h-7 grid place-items-center hover:bg-emerald-50"
+                      onClick={() => cart.setQty(it.id, it.qty + 1)}
+                      aria-label="Increase"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
-            <div className="px-4 py-3 border-t">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-emerald-900/80">Subtotal</span>
-                <span className="font-semibold text-emerald-950">R{cart.subtotal.toLocaleString()}</span>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <Link href="/checkout" className="flex-1 inline-flex items-center justify-center rounded-xl px-4 py-2 bg-emerald-600 text-white">Checkout</Link>
-                <button onClick={() => { cart.clear(); onClose?.(); }} className="px-4 py-2 rounded-xl border">Clear</button>
-              </div>
+          <div className="px-4 py-3 border-t">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-emerald-900/80">Subtotal</span>
+              <span className="font-semibold text-emerald-950">R{cart.subtotal.toLocaleString()}</span>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <Link
+                href="/checkout"
+                className="flex-1 inline-flex items-center justify-center rounded-xl px-4 py-2 bg-emerald-600 text-white"
+              >
+                Checkout
+              </Link>
+              <button
+                onClick={() => {
+                  cart.clear();
+                  onClose?.();
+                }}
+                className="px-4 py-2 rounded-xl border"
+              >
+                Clear
+              </button>
             </div>
           </div>
-          {/* click-away catcher */}
-          <button onClick={onClose} className="fixed inset-0 z-[-1]" aria-hidden />
-        </motion.div>
-      )}
-    </AnimatePresence>
+        </div>
+
+        {/* click-away catcher ABOVE the drawer/backdrop */}
+        <button
+          onClick={onClose}
+          className="fixed inset-0 z-[139]"
+          aria-hidden
+          type="button"
+        />
+      </motion.div>
+    </AnimatePresence>,
+    document.body
   );
 }
+
 
 /* =============================================================================
    Shop dropdown (desktop) with + buttons
