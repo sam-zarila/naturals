@@ -279,7 +279,6 @@ function Header() {
         {/* center: (desktop nav only) */}
         <nav className="hidden md:flex items-center justify-center gap-8">
           <a href="#" className="navlink">Company</a>
-          <a href="#new" className="navlink">Products</a>
           <a href="#faqs" className="navlink">FAQ</a>
           <a href="#support" className="navlink">Support</a>
           <ShopMenu />
@@ -755,7 +754,7 @@ function Hero() {
             <Magnetic>
               <Link href="/shop" className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 bg-neutral-900 text-white shadow hover:bg-neutral-800">Shop Now</Link>
             </Magnetic>
-            <Link href="/about" className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 border border-neutral-300 text-neutral-900 hover:bg-neutral-50">Learn Our Story</Link>
+            <Link href="/more" className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 border border-neutral-300 text-neutral-900 hover:bg-neutral-50">More Info</Link>
           </motion.div>
         </div>
 
@@ -966,7 +965,7 @@ type Post = {
 const POSTS: Post[] = [
   {
     id: 'lesley-alchemist',
-    title: 'Lesley May Mpofu — The Luxe Roots Alchemist of Delightful Naturals',
+    title: 'Lesley May — The Luxe Roots Alchemist of Delightful Naturals',
     date: '09 Sep 2025',
     cover: '/hero/hair-growth-oil-100ml.png',
     tags: ['Founder', 'Ayurveda', 'Postpartum'],
@@ -982,7 +981,7 @@ const POSTS: Post[] = [
     cover: '/hero/hair-growth-oil-100ml.png',
     tags: ['Our Story', 'Ritual', 'Holistic Care'],
     excerpt:
-      'Created by Lesley May Mpofu, Mega Potent Hair Growth Oil was born from a personal journey through postpartum shedding, thinning edges, and a passion for holistic care.',
+      'Created by Lesley May , Mega Potent Hair Growth Oil was born from a personal journey through postpartum shedding, thinning edges, and a passion for holistic care.',
     body:
       "Welcome to Delightful Naturals – where every drop is a promise to restore, nourish, and empower.\n\nCreated by Lesley May Mpofu, Mega Potent Hair Growth Oil was born out of a personal journey through postpartum shedding, thinning edges, and a passion for holistic care.\n\nThis handcrafted Ayurvedic blend fuses tradition with luxury — featuring rich oils like castor, flaxseed, jojoba, and herbs like amla, moringa, and hibiscus. It’s designed for women who want results and ritual — a moment of self-care rooted in nature, elegance, and deep restoration.\n\nWhether you're on a journey to regrow, protect, or simply glow — we're here to grow with you.",
   },
