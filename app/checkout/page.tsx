@@ -6,48 +6,18 @@ import Link from 'next/link';
 import React, { JSX, useEffect, useMemo, useState } from 'react';
 
 /* ============================================================================
-   Types
+   Types & Catalog
 ============================================================================ */
 type Product = {
   id: string;
   name: string;
-  price: number; // rands
+  price: number; // ZAR
   currency: 'R';
   img: string;
 };
-
 type StoredCartItem = { id: string; qty: number };
-
 type LineItem = Product & { qty: number; lineTotal: number };
 
-type Buyer = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  address1: string;
-  address2: string;
-  city: string;
-  province: string;
-  postalCode: string;
-  notes: string;
-  shippingMethod: 'courier' | 'pickup';
-};
-
-type CheckoutPayload = {
-  buyer: Buyer;
-  items: Array<{ id: string; name: string; price: number; qty: number }>;
-  amounts: { subtotal: number; shipping: number; grandTotal: number };
-};
-
-type PayfastInitResponse = {
-  actionUrl: string;
-  fields: Record<string, string | number>;
-};
-
-/* ============================================================================
-   Catalog (mirror your product ids)
-============================================================================ */
 const CATALOG: Record<string, Product> = {
   'growth-100': {
     id: 'growth-100',
@@ -66,41 +36,26 @@ const CATALOG: Record<string, Product> = {
 };
 
 /* ============================================================================
-   Helpers (typed localStorage)
+   Local storage helpers
 ============================================================================ */
 const CART_KEY = 'dn-cart';
-
-function isStoredCartItem(x: unknown): x is StoredCartItem {
-  return (
-    typeof x === 'object' &&
-    x !== null &&
-    'id' in x &&
-    'qty' in x &&
-    typeof (x as { id: unknown }).id === 'string' &&
-    typeof (x as { qty: unknown }).qty === 'number'
-  );
-}
-
 function readCart(): StoredCartItem[] {
   try {
     const raw = localStorage.getItem(CART_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
+    const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    const cleaned: StoredCartItem[] = [];
-    for (const it of parsed) if (isStoredCartItem(it) && it.qty > 0) cleaned.push(it);
-    return cleaned;
+    return parsed
+      .filter((x: any) => x && typeof x.id === 'string' && Number.isFinite(x.qty))
+      .map((x: any) => ({ id: x.id, qty: Math.max(1, Math.min(99, Number(x.qty))) }));
   } catch {
     return [];
   }
 }
-
-function writeCart(next: StoredCartItem[]): void {
+function writeCart(next: StoredCartItem[]) {
   try {
     localStorage.setItem(CART_KEY, JSON.stringify(next));
-  } catch {
-    /* ignore */
-  }
+  } catch {}
 }
 
 /* ============================================================================
@@ -108,21 +63,10 @@ function writeCart(next: StoredCartItem[]): void {
 ============================================================================ */
 export default function CheckoutPage(): JSX.Element {
   const [cart, setCart] = useState<StoredCartItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const [form, setForm] = useState<{
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    address1: string;
-    address2: string;
-    city: string;
-    province: string;
-    postalCode: string;
-    notes: string;
-    shipping: 'courier' | 'pickup';
-  }>({
+  // buyer/contact form (minimal for Paystack initialize)
+  const [form, setForm] = useState({
     firstName: '',
     lastName: '',
     email: '',
@@ -133,14 +77,12 @@ export default function CheckoutPage(): JSX.Element {
     province: '',
     postalCode: '',
     notes: '',
-    shipping: 'courier',
+    shipping: 'courier' as 'courier' | 'pickup',
   });
-
-  const [errors, setErrors] = useState<Partial<Record<keyof typeof form | 'cart', string>>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setCart(readCart());
-    setLoading(false);
   }, []);
 
   const lines: LineItem[] = useMemo(
@@ -152,31 +94,28 @@ export default function CheckoutPage(): JSX.Element {
           const qty = Math.max(1, c.qty || 1);
           return { ...p, qty, lineTotal: qty * p.price };
         })
-        .filter((x): x is LineItem => Boolean(x)),
-    [cart],
+        .filter(Boolean) as LineItem[],
+    [cart]
   );
 
   const subtotal = useMemo(() => lines.reduce((s, x) => s + x.lineTotal, 0), [lines]);
   const shipping = form.shipping === 'courier' ? 80 : 0;
   const grandTotal = subtotal + shipping;
 
-  /* --------------------------- mutations --------------------------- */
   const updateQty = (id: string, qty: number) => {
     const q = Math.max(1, qty);
     const next = cart.map((x) => (x.id === id ? { ...x, qty: q } : x));
     setCart(next);
     writeCart(next);
   };
-
   const removeItem = (id: string) => {
     const next = cart.filter((x) => x.id !== id);
     setCart(next);
     writeCart(next);
   };
 
-  /* --------------------------- validation -------------------------- */
-  const validate = (): boolean => {
-    const e: Partial<Record<keyof typeof form | 'cart', string>> = {};
+  const validate = () => {
+    const e: Record<string, string> = {};
     if (!form.firstName.trim()) e.firstName = 'Required';
     if (!form.lastName.trim()) e.lastName = 'Required';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Enter a valid email';
@@ -192,70 +131,49 @@ export default function CheckoutPage(): JSX.Element {
     return Object.keys(e).length === 0;
   };
 
-  /* --------------------------- payfast flow ------------------------ */
-  const onPay = async (): Promise<void> => {
+  const onPay = async () => {
     if (!validate()) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-
-    const payload: CheckoutPayload = {
-      buyer: {
-        firstName: form.firstName,
-        lastName: form.lastName,
-        email: form.email,
-        phone: form.phone,
-        address1: form.address1,
-        address2: form.address2,
-        city: form.city,
-        province: form.province,
-        postalCode: form.postalCode,
-        notes: form.notes,
-        shippingMethod: form.shipping,
-      },
-      items: lines.map(({ id, name, price, qty }) => ({ id, name, price, qty })),
-      amounts: { subtotal, shipping, grandTotal },
-    };
-
+    setLoading(true);
     try {
-      setLoading(true);
-      const res = await fetch('/api/payfast/initiate', {
+      // optional: include cart in metadata
+      const cartForMeta = lines.map(({ id, name, price, qty }) => ({ id, name, price, qty }));
+
+      const res = await fetch('/api/paystack/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          email: form.email,
+          amountZar: grandTotal,
+          name: `${form.firstName} ${form.lastName}`.trim(),
+          phone: form.phone,
+          cart: cartForMeta,
+        }),
       });
-      if (!res.ok) throw new Error('Failed to start payment');
 
-      const data: PayfastInitResponse = await res.json();
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.message || 'Failed to start payment');
+      }
 
-      // Create and submit a POST form to PayFast
-      const formEl = document.createElement('form');
-      formEl.method = 'POST';
-      formEl.action = data.actionUrl;
-      formEl.style.display = 'none';
-      Object.entries(data.fields).forEach(([k, v]) => {
-        const inp = document.createElement('input');
-        inp.type = 'hidden';
-        inp.name = k;
-        inp.value = String(v);
-        formEl.appendChild(inp);
-      });
-      document.body.appendChild(formEl);
-      formEl.submit();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Payment error';
-      alert(message);
-    } finally {
+      const { authorization_url } = (await res.json()) as {
+        authorization_url: string;
+        reference: string;
+      };
+
+      // Redirect customer to Paystack hosted page
+      window.location.href = authorization_url;
+    } catch (err: any) {
+      alert(err?.message || 'Payment error');
       setLoading(false);
     }
   };
 
-  /* ==========================================================================
-     UI
-  ========================================================================== */
   return (
     <main className="bg-white">
-      {/* Page header */}
+      {/* Header */}
       <div className="border-b">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -268,7 +186,7 @@ export default function CheckoutPage(): JSX.Element {
         </div>
       </div>
 
-      {/* Content */}
+      {/* Layout */}
       <div className="max-w-6xl mx-auto px-4 py-8 lg:py-12 grid lg:grid-cols-5 gap-8">
         {/* Left: form */}
         <section className="lg:col-span-3">
@@ -281,7 +199,6 @@ export default function CheckoutPage(): JSX.Element {
             </div>
           )}
 
-          {/* Contact */}
           <Card title="Contact information">
             <div className="grid sm:grid-cols-2 gap-3">
               <Field
@@ -290,7 +207,6 @@ export default function CheckoutPage(): JSX.Element {
                 value={form.firstName}
                 onChange={(e) => setForm({ ...form, firstName: e.target.value })}
                 error={errors.firstName}
-                autoComplete="given-name"
               />
               <Field
                 id="lastName"
@@ -298,10 +214,8 @@ export default function CheckoutPage(): JSX.Element {
                 value={form.lastName}
                 onChange={(e) => setForm({ ...form, lastName: e.target.value })}
                 error={errors.lastName}
-                autoComplete="family-name"
               />
             </div>
-
             <div className="grid sm:grid-cols-2 gap-3 mt-3">
               <Field
                 id="email"
@@ -310,7 +224,6 @@ export default function CheckoutPage(): JSX.Element {
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 error={errors.email}
-                autoComplete="email"
               />
               <Field
                 id="phone"
@@ -319,12 +232,10 @@ export default function CheckoutPage(): JSX.Element {
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 error={errors.phone}
                 placeholder="+27 ..."
-                autoComplete="tel"
               />
             </div>
           </Card>
 
-          {/* Delivery */}
           <Card title="Delivery">
             <div className="flex flex-col sm:flex-row gap-3">
               <RadioCard
@@ -349,14 +260,12 @@ export default function CheckoutPage(): JSX.Element {
                   value={form.address1}
                   onChange={(e) => setForm({ ...form, address1: e.target.value })}
                   error={errors.address1}
-                  autoComplete="address-line1"
                 />
                 <Field
                   id="address2"
                   label="Address line 2 (optional)"
                   value={form.address2}
                   onChange={(e) => setForm({ ...form, address2: e.target.value })}
-                  autoComplete="address-line2"
                 />
                 <Field
                   id="city"
@@ -364,7 +273,6 @@ export default function CheckoutPage(): JSX.Element {
                   value={form.city}
                   onChange={(e) => setForm({ ...form, city: e.target.value })}
                   error={errors.city}
-                  autoComplete="address-level2"
                 />
                 <Field
                   id="province"
@@ -373,7 +281,6 @@ export default function CheckoutPage(): JSX.Element {
                   onChange={(e) => setForm({ ...form, province: e.target.value })}
                   error={errors.province}
                   placeholder="e.g. Gauteng"
-                  autoComplete="address-level1"
                 />
                 <Field
                   id="postalCode"
@@ -381,7 +288,6 @@ export default function CheckoutPage(): JSX.Element {
                   value={form.postalCode}
                   onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
                   error={errors.postalCode}
-                  autoComplete="postal-code"
                 />
               </div>
             )}
@@ -397,7 +303,6 @@ export default function CheckoutPage(): JSX.Element {
             </div>
           </Card>
 
-          {/* Pay button */}
           <div className="mt-6 flex flex-col sm:flex-row gap-3">
             <button
               onClick={onPay}
@@ -407,10 +312,10 @@ export default function CheckoutPage(): JSX.Element {
               {loading ? (
                 <>
                   <Spinner />
-                  <span className="ml-2">Preparing PayFast…</span>
+                  <span className="ml-2">Opening Paystack…</span>
                 </>
               ) : (
-                'Pay with PayFast'
+                'Pay now'
               )}
             </button>
             <Link href="/cart" className="inline-flex items-center justify-center rounded-2xl px-6 py-3 border">
@@ -418,11 +323,11 @@ export default function CheckoutPage(): JSX.Element {
             </Link>
           </div>
           <div className="mt-3 text-[12px] text-emerald-900/70">
-            You’ll be redirected to PayFast to complete your secure payment in ZAR.
+            You’ll be redirected to Paystack to complete your secure payment in ZAR.
           </div>
         </section>
 
-        {/* Right: order summary */}
+        {/* Right: summary */}
         <aside className="lg:col-span-2">
           <div className="rounded-2xl border bg-white shadow-sm p-4 sm:p-5">
             <div className="font-semibold text-emerald-950">Order summary</div>
@@ -446,9 +351,7 @@ export default function CheckoutPage(): JSX.Element {
                     />
                     <div className="flex-1">
                       <div className="text-sm font-medium text-emerald-950">{it.name}</div>
-                      <div className="text-xs text-emerald-800/70">
-                        R{it.price.toLocaleString()}
-                      </div>
+                      <div className="text-xs text-emerald-800/70">R{it.price.toLocaleString()}</div>
                       <div className="mt-1 inline-flex items-center rounded-lg border overflow-hidden">
                         <button
                           className="w-7 h-7 grid place-items-center hover:bg-emerald-50"
@@ -481,7 +384,7 @@ export default function CheckoutPage(): JSX.Element {
                   </motion.div>
                 ))}
               </AnimatePresence>
-              {lines.length === 0 && !loading && (
+              {lines.length === 0 && (
                 <div className="py-6 text-sm text-emerald-900/70">Your cart is empty.</div>
               )}
             </div>
@@ -501,7 +404,7 @@ export default function CheckoutPage(): JSX.Element {
               <span className="inline-grid place-items-center w-6 h-6 rounded-full bg-emerald-100 border">
                 🔒
               </span>
-              Payments are processed securely by PayFast (ZAR).
+              Payments are processed securely by Paystack (ZAR).
             </div>
           </div>
         </aside>
@@ -523,9 +426,7 @@ export default function CheckoutPage(): JSX.Element {
   );
 }
 
-/* ============================================================================
-   UI bits (typed, no any)
-============================================================================ */
+/* UI bits */
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mt-6 rounded-2xl border bg-white shadow-sm p-4 sm:p-5">
@@ -534,7 +435,6 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
     </div>
   );
 }
-
 function Field(props: {
   id: string;
   label: string;
@@ -542,10 +442,9 @@ function Field(props: {
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   type?: 'text' | 'email' | 'tel';
   placeholder?: string;
-  autoComplete?: string;
   error?: string;
 }) {
-  const { id, label, value, onChange, type = 'text', placeholder, autoComplete, error } = props;
+  const { id, label, value, onChange, type = 'text', placeholder, error } = props;
   return (
     <label htmlFor={id} className="block">
       <div className="label">{label}</div>
@@ -557,7 +456,6 @@ function Field(props: {
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          autoComplete={autoComplete}
           className="input-base pl-9"
         />
       </div>
@@ -565,34 +463,24 @@ function Field(props: {
     </label>
   );
 }
-
 function TextArea(props: {
   id: string;
   label: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   rows?: number;
-  placeholder?: string;
 }) {
-  const { id, label, value, onChange, rows = 4, placeholder } = props;
+  const { id, label, value, onChange, rows = 4 } = props;
   return (
     <label htmlFor={id} className="block">
       <div className="label">{label}</div>
       <div className="relative">
         <span className="absolute left-3 top-3 text-emerald-700/60">✎</span>
-        <textarea
-          id={id}
-          value={value}
-          onChange={onChange}
-          rows={rows}
-          placeholder={placeholder}
-          className="input-base pl-9 resize-none"
-        />
+        <textarea id={id} value={value} onChange={onChange} rows={rows} className="input-base pl-9 resize-none" />
       </div>
     </label>
   );
 }
-
 function RadioCard(props: {
   checked: boolean;
   onChange: () => void;
@@ -606,12 +494,7 @@ function RadioCard(props: {
         checked ? 'border-emerald-400 ring-2 ring-emerald-200' : 'hover:bg-emerald-50/40'
       }`}
     >
-      <input
-        type="radio"
-        className="accent-emerald-600"
-        checked={checked}
-        onChange={onChange}
-      />
+      <input type="radio" className="accent-emerald-600" checked={checked} onChange={onChange} />
       <div>
         <div className="font-medium text-emerald-950">{title}</div>
         <div className="text-xs text-emerald-800/80">{subtitle}</div>
@@ -619,7 +502,6 @@ function RadioCard(props: {
     </label>
   );
 }
-
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
@@ -628,23 +510,11 @@ function Row({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
 function Spinner() {
   return (
-    <svg
-      className="animate-spin h-5 w-5 text-white"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
+    <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        d="M4 12a8 8 0 018-8"
-        stroke="currentColor"
-        strokeWidth="4"
-        strokeLinecap="round"
-      />
+      <path className="opacity-75" d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
     </svg>
   );
 }
