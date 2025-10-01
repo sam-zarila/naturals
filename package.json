@@ -4,10 +4,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "preinstall": "npx npm-force-resolutions || echo 'skip resolutions'", 
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "install": "npm install --legacy-peer-deps"
   },
   "dependencies": {
     "framer-motion": "^12.23.12",
