@@ -1,15 +1,12 @@
 {
   "name": "dine_naturals",
-  "homepage": "https://delightfulnaturals.co.za",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "preinstall": "npx npm-force-resolutions || echo 'skip resolutions'", 
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "install": "npm install --legacy-peer-deps"
+    "lint": "next lint"
   },
   "dependencies": {
     "framer-motion": "^12.23.12",
@@ -28,5 +25,8 @@
     "eslint-config-next": "15.5.0",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": "20.x"
   }
 }

@@ -1,0 +1,7 @@
+[build]
+command = "npm run build"
+
+[build.environment]
+NODE_VERSION = "20"
+# Uncomment only if you need it:
+# NPM_FLAGS = "--legacy-peer-deps"
