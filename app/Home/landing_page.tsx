@@ -114,6 +114,48 @@ function useCart(): CartContextValue {
   if (!ctx) throw new Error('useCart must be used within CartProvider');
   return ctx;
 }
+function IconLeaf({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M19 5s-8-2-12 2-2 10 3 10 9-6 9-12Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M8 14c2-2 5-4 11-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconQuestionCircle({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/>
+      <path d="M9.6 9.5a2.4 2.4 0 1 1 3.8 2c-.7.4-1.4.9-1.4 1.8v.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="12" cy="16.5" r="1" fill="currentColor"/>
+    </svg>
+  );
+}
+
+function IconStar({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className}>
+      <path
+        d="M12 17.27 6.803 20.36l1.28-5.52L3 9.82l5.6-.48L12 4l3.4 5.34 5.6.48-5.083 4.02 1.28 5.52L12 17.27Z"
+        fill="currentColor"
+        stroke="currentColor"
+        strokeWidth="0.6"
+      />
+    </svg>
+  );
+}
+
+function IconLifeBuoy({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/>
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.8"/>
+      <path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+      <path d="M6.2 6.2l2.0 2.0M17.8 6.2l-2.0 2.0M6.2 17.8l2.0-2.0M17.8 17.8l-2.0-2.0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    </svg>
+  );
+}
 
 /* =============================================================================
    Page
@@ -189,13 +231,45 @@ const SHOP_PRODUCTS: Array<{
 /* =============================================================================
    Header (mobile-beautified) — with hamburger feedback on add-to-cart
 ============================================================================= */
+function useSectionSpy(ids: string[]) {
+  const [active, setActive] = useState<string>(ids[0] ?? '');
+
+  useEffect(() => {
+    const els = ids
+      .map((id) => document.getElementById(id))
+      .filter(Boolean) as HTMLElement[];
+    if (els.length === 0) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        // pick the most visible intersecting section
+        const vis = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (vis[0]) setActive((vis[0].target as HTMLElement).id);
+      },
+      {
+        // “middle of the screen” counts as active
+        rootMargin: '-35% 0px -55% 0px',
+        threshold: [0, 0.25, 0.5, 0.75, 1],
+      },
+    );
+
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [ids.join(',')]);
+
+  return active;
+}
+
 function Header() {
   const { scrollY } = useScroll();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [menuPing, setMenuPing] = useState(false);           // NEW
-  const pingTimer = useRef<number | null>(null);             // NEW
+  const pingTimer = useRef<number | null>(null);
+  const active = useSectionSpy([  'faqs', 'contact', 'support', 'shop', 'testimonials']);        // NEW
   const cart = useCart();
 
   const bg = useTransform(scrollY, [0, 120], ['rgba(235,244,235,0)', 'rgba(255,255,255,0.9)']);
@@ -278,11 +352,42 @@ function Header() {
 
         {/* center: (desktop nav only) */}
         <nav className="hidden md:flex items-center justify-center gap-8">
-          <a href="#" className="navlink">Company</a>
-          <a href="#faqs" className="navlink">FAQ</a>
-          <a href="#support" className="navlink">Support</a>
-          <ShopMenu />
-        </nav>
+  <a
+    href="#"
+    className={`navlink flex items-center gap-1.5 ${active === 'company' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
+  >
+    <IconLeaf className="w-4 h-4" aria-hidden />
+    <span>Home</span>
+  </a>
+
+  <a
+    href="#faqs"
+    className={`navlink flex items-center gap-1.5 ${active === 'faqs' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
+  >
+    <IconQuestionCircle className="w-4 h-4" aria-hidden />
+    <span>FAQ</span>
+  </a>
+
+  <a
+    href="#testimonials"
+    className={`navlink flex items-center gap-1.5 ${active === 'testimonials' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
+  >
+    <IconStar className="w-4 h-4" aria-hidden />
+    <span>Testimonials</span>
+  </a>
+
+  <a
+    href="#support"
+    className={`navlink flex items-center gap-1.5 ${active === 'support' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
+  >
+    <IconLifeBuoy className="w-4 h-4" aria-hidden />
+    <span>Support</span>
+  </a>
+
+  <ShopMenu />
+</nav>
+
+ 
 
         {/* right: cart + hamburger */}
         <div className="relative flex items-center justify-end gap-3 justify-self-end -mr-0 sm:-mr-6">
@@ -898,7 +1003,7 @@ function Testimonials() {
   }, [items.length]);
 
   return (
-    <section className="relative">
+    <section className="relative" id='testimonials'>
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(800px_500px_at_50%_-10%,rgba(16,185,129,0.12),transparent_60%)]" />
       <div className="max-w-5xl mx-auto px-4 py-12 md:py-16 text-center">
         <h2 className="text-2xl md:text-3xl font-bold text-emerald-950">What our customers are saying</h2>
