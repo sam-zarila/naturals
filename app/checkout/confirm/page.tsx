@@ -64,12 +64,8 @@ export default function ConfirmPage() {
           </p>
           <p className="text-sm text-neutral-700">Amount: <b>ZAR {amtZar}</b></p>
           <p className="text-sm text-neutral-700">Email: {payload?.data?.customer?.email}</p>
-          <a
-            href="/"
-            className="inline-flex mt-6 rounded-xl bg-emerald-600 text-white px-4 py-2"
-          >
-            Continue shopping
-          </a>
+         
+    
         </>
       ) : (
         <>
