@@ -35,11 +35,177 @@ function addToCart(productId: string, qty = 1) {
 }
 
 /* ================================
+   Icons (matching your style)
+================================= */
+function IconHome({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M3 11.5 12 4l9 7.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6 10.5V20h12v-9.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconBook({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M5 4h9a3 3 0 0 1 3 3v13H8a3 3 0 0 0-3 3V4Z" strokeLinecap="round" />
+      <path d="M17 20V7a3 3 0 0 0-3-3" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconDrop({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M12 3s6 6.04 6 10a6 6 0 1 1-12 0c0-3.96 6-10 6-10Z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconChevron({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} fill="currentColor" aria-hidden>
+      <path d="M7 5l6 5-6 5V5z" />
+    </svg>
+  );
+}
+
+/* ================================
+   Section Spy
+================================= */
+function useSectionSpy(ids: string[]) {
+  const [active, setActive] = React.useState<string>('');
+
+  // from hash
+  React.useEffect(() => {
+    const setFromHash = () => {
+      const h = window.location.hash.replace('#', '');
+      if (ids.includes(h)) setActive(h);
+    };
+    setFromHash();
+    window.addEventListener('hashchange', setFromHash);
+    return () => window.removeEventListener('hashchange', setFromHash);
+  }, [ids]);
+
+  // while scrolling
+  React.useEffect(() => {
+    const els = ids
+      .map((id) => document.getElementById(id))
+      .filter(Boolean) as HTMLElement[];
+    if (!els.length) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        const vis = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (vis[0]) setActive((vis[0].target as HTMLElement).id);
+      },
+      { rootMargin: '-35% 0px -55% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] }
+    );
+
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [ids.join(',')]);
+
+  return active;
+}
+
+/* ================================
+   Pretty Breadcrumbs (icon pills)
+================================= */
+function BreadcrumbsFancy({
+  section, // optional nested section (e.g. current product block)
+}: {
+  section?: { label: string; href?: string };
+}) {
+  const isSection = Boolean(section?.label);
+
+  return (
+    <nav aria-label="Breadcrumb" className="bg-gradient-to-b from-emerald-50/60 to-white border rounded-2xl">
+      <div className="px-3 sm:px-4 py-2.5">
+        <ol className="flex flex-wrap items-center gap-1.5">
+          {/* Home */}
+          <li>
+            <Link
+              href="/"
+              className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
+            >
+              <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
+                <IconHome className="w-3.5 h-3.5" />
+              </span>
+              <span className="font-medium">Home</span>
+            </Link>
+          </li>
+
+          <li aria-hidden className="px-1 text-emerald-700/60">
+            <IconChevron className="w-4 h-4" />
+          </li>
+
+          {/* Product Guide (current if no section; otherwise link) */}
+          <li>
+            {isSection ? (
+              <Link
+                href="/more"
+                className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
+              >
+                <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
+                  <IconBook className="w-3.5 h-3.5" />
+                </span>
+                <span className="font-medium">Product Guide</span>
+              </Link>
+            ) : (
+              <span className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 text-white px-3 py-1.5 text-sm shadow">
+                <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-white/20 border border-white/30">
+                  <IconBook className="w-3.5 h-3.5" />
+                </span>
+                <span className="font-semibold">Product Guide</span>
+              </span>
+            )}
+          </li>
+
+          {/* Section (active) */}
+          {isSection && (
+            <>
+              <li aria-hidden className="px-1 text-emerald-700/60">
+                <IconChevron className="w-4 h-4" />
+              </li>
+              <li aria-current="page">
+                <span className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 text-white px-3 py-1.5 text-sm shadow">
+                  <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-white/20 border border-white/30">
+                    <IconDrop className="w-3.5 h-3.5" />
+                  </span>
+                  <span className="font-semibold">{section!.label}</span>
+                </span>
+              </li>
+            </>
+          )}
+        </ol>
+      </div>
+    </nav>
+  );
+}
+
+/* ================================
    Page
 ================================= */
 export default function MoreInfoPage() {
+  const activeSection = useSectionSpy(['growth-100', 'detox-60']);
+  const sectionLabels: Record<string, string> = {
+    'growth-100': 'Hair Growth Oil · 100ml',
+    'detox-60': 'Scalp Detox Oil · 60ml',
+  };
+  const section =
+    activeSection && sectionLabels[activeSection]
+      ? { label: sectionLabels[activeSection], href: `#${activeSection}` }
+      : undefined;
+
   return (
     <main className="bg-white">
+      {/* Smooth anchors + offset for sticky bar */}
+      <style jsx global>{`
+        html { scroll-behavior: smooth; }
+        section[id] { scroll-margin-top: 88px; }
+      `}</style>
+
       {/* Top bar */}
       <div className="sticky top-0 z-30 border-b bg-white/90 backdrop-blur">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -61,14 +227,19 @@ export default function MoreInfoPage() {
           aria-hidden
           className="absolute inset-0 -z-10 bg-[radial-gradient(1000px_500px_at_50%_-10%,rgba(16,185,129,0.12),transparent_60%)]"
         />
-        <div className="max-w-6xl mx-auto px-4 py-10 md:py-14">
+        <div className="max-w-6xl mx-auto px-4 py-10 md:py-14 space-y-4">
+          {/* Fancy Breadcrumbs */}
+          <motion.div {...fade}>
+            <BreadcrumbsFancy section={section} />
+          </motion.div>
+
           <motion.h1 {...fade} className="text-3xl md:text-4xl font-extrabold text-emerald-950 tracking-tight">
             Product Guide & Ingredients
           </motion.h1>
           <motion.p
             {...fade}
             transition={{ ...fade.transition, delay: 0.06 }}
-            className="mt-2 text-emerald-900/80 max-w-2xl"
+            className="text-emerald-900/80 max-w-2xl"
           >
             What’s inside each bottle, why it works, and how to use it for the best results.
           </motion.p>
@@ -76,7 +247,7 @@ export default function MoreInfoPage() {
           <motion.div
             {...fade}
             transition={{ ...fade.transition, delay: 0.12 }}
-            className="mt-5 flex flex-wrap gap-2"
+            className="pt-1 flex flex-wrap gap-2"
           >
             <a href="#growth-100" className="chip">Hair Growth Oil · 100ml</a>
             <a href="#detox-60" className="chip">Scalp Detox Oil · 60ml</a>
@@ -188,7 +359,7 @@ export default function MoreInfoPage() {
               <h3 className="text-lg font-semibold text-emerald-950">Not sure where to start?</h3>
               <p className="mt-2 text-emerald-900/80">
                 Use <span className="font-medium">Scalp Detox Oil</span> pre-wash for a fresh, balanced scalp, then seal
-                in moisture with <span className="font-medium">Hair Growth Oil</span> on mid-lengths & ends.
+                in moisture with <span className="font-medium">Hair Growth Oil</span> on mid-lengths &amp; ends.
               </p>
             </div>
             <div className="p-6 sm:p-8">

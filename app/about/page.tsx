@@ -3,9 +3,80 @@
 import Image from 'next/image';
 import Link from 'next/link';
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Icons for breadcrumbs
+───────────────────────────────────────────────────────────────────────────── */
+function IconHome({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M3 11.5 12 4l9 7.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6 10.5V20h12v-9.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconInfo({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 10v6" strokeLinecap="round" />
+      <circle cx="12" cy="7.5" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+function IconChevron({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} fill="currentColor" aria-hidden>
+      <path d="M7 5l6 5-6 5V5z" />
+    </svg>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Breadcrumbs (Home → About)
+───────────────────────────────────────────────────────────────────────────── */
+function BreadcrumbsAbout() {
+  return (
+    <nav aria-label="Breadcrumb" className="bg-gradient-to-b from-emerald-50/60 to-white border-b">
+      <div className="max-w-6xl mx-auto px-4 py-3">
+        <ol className="flex flex-wrap items-center gap-1.5">
+          {/* Home */}
+          <li>
+            <Link
+              href="/"
+              className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
+            >
+              <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
+                <IconHome className="w-3.5 h-3.5" />
+              </span>
+              <span className="font-medium">Home</span>
+            </Link>
+          </li>
+
+          <li aria-hidden className="px-1 text-emerald-700/60">
+            <IconChevron className="w-4 h-4" />
+          </li>
+
+          {/* About (current) */}
+          <li aria-current="page">
+            <span className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 text-white px-3 py-1.5 text-sm shadow">
+              <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-white/20 border border-white/30">
+                <IconInfo className="w-3.5 h-3.5" />
+              </span>
+              <span className="font-semibold">About</span>
+            </span>
+          </li>
+        </ol>
+      </div>
+    </nav>
+  );
+}
+
 export default function AboutPage() {
   return (
     <main className="relative">
+      {/* Breadcrumbs bar */}
+      <BreadcrumbsAbout />
+
       {/* HERO */}
       <section className="bg-emerald-50/50">
         <div className="max-w-6xl mx-auto px-4 py-10 md:py-14 grid md:grid-cols-2 gap-8 items-center">

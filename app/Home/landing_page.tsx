@@ -269,7 +269,7 @@ function Header() {
   const [cartOpen, setCartOpen] = useState(false);
   const [menuPing, setMenuPing] = useState(false);           // NEW
   const pingTimer = useRef<number | null>(null);
-  const active = useSectionSpy([  'faqs', 'contact', 'support', 'shop', 'testimonials']);        // NEW
+  const active = useSectionSpy(['home', 'testimonials', 'faqs', 'contact', 'support']);       // NEW
   const cart = useCart();
 
   const bg = useTransform(scrollY, [0, 120], ['rgba(235,244,235,0)', 'rgba(255,255,255,0.9)']);
@@ -353,8 +353,8 @@ function Header() {
         {/* center: (desktop nav only) */}
         <nav className="hidden md:flex items-center justify-center gap-8">
   <a
-    href="#"
-    className={`navlink flex items-center gap-1.5 ${active === 'company' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
+    href="#home"
+    className={`navlink flex items-center gap-1.5 ${active === 'home' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
   >
     <IconLeaf className="w-4 h-4" aria-hidden />
     <span>Home</span>
@@ -840,7 +840,7 @@ function Hero() {
   }, [haloPulse]);
 
   return (
-    <section ref={heroRef} className="relative bg-gradient-to-b from-emerald-50 via-emerald-50/50 to-white">
+    <section id='home' ref={heroRef} className="relative bg-gradient-to-b from-emerald-50 via-emerald-50/50 to-white">
       <div className="absolute inset-0 -z-10">
         <div className="absolute -top-10 -left-10 h-72 w-72 rounded-full blur-3xl" style={{ background:'radial-gradient(circle at 30% 30%, rgba(16,185,129,0.28), transparent 60%)' }} />
         <div className="absolute -bottom-10 right-0 h-80 w-80 rounded-full blur-3xl" style={{ background:'radial-gradient(circle at 60% 60%, rgba(16,185,129,0.18), transparent 60%)' }} />
@@ -1368,20 +1368,37 @@ function ContactSection() {
       setForm((f) => ({ ...f, [key]: e.target.value }));
     };
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
-      setError('Please fill in your name, email, and message.');
-      return;
+   const onSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError(null);
+
+  if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
+    setError('Please fill in your name, email, and message.');
+    return;
+  }
+  if (form.honey) return; // honeypot
+
+  setSubmitting(true);
+  try {
+    const res = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data?.error || 'Something went wrong.');
     }
-    if (form.honey) return;
-    setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      setSent(true);
-    }, 1200);
-  };
+
+    setSent(true);
+  } catch (err: any) {
+    setError(err.message || 'Failed to send. Please try again.');
+  } finally {
+    setSubmitting(false);
+  }
+};
+
 
   return (
     <section id="contact" className="relative">
