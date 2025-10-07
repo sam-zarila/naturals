@@ -66,10 +66,16 @@ export async function POST(req: NextRequest) {
     // show immediate, precise SMTP errors while debugging
     try {
       await transporter.verify();
-    } catch (e: any) {
-      console.error('SMTP verify failed:', e);
+    } catch (error) {
+      console.error('SMTP verify failed:', error);
+      let errorMessage = 'Unknown error';
+      if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = String((error as Record<string, unknown>).message);
+      } else {
+        errorMessage = String(error);
+      }
       return NextResponse.json(
-        { error: 'SMTP connection failed.', detail: isProd ? undefined : String(e?.message || e) },
+        { error: 'SMTP connection failed.', detail: isProd ? undefined : errorMessage },
         { status: 500 }
       );
     }
@@ -121,10 +127,16 @@ Thanks for contacting Delightful Naturals. We’ve received your message and wil
     });
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
-    console.error('Contact send error:', err);
+  } catch (error) {
+    console.error('Contact send error:', error);
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'object' && error && 'message' in error
+        ? String((error as Record<string, unknown>).message)
+        : String(error);
     return NextResponse.json(
-      { error: 'Failed to send message.', detail: isProd ? undefined : String(err?.message || err) },
+      { error: 'Failed to send message.', detail: isProd ? undefined : errorMessage },
       { status: 500 }
     );
   }

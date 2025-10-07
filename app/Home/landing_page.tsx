@@ -1392,8 +1392,9 @@ function ContactSection() {
     }
 
     setSent(true);
-  } catch (err: any) {
-    setError(err.message || 'Failed to send. Please try again.');
+  } catch (err) {
+    if (err instanceof Error) setError(err.message);
+    else setError('An unexpected error occurred.');
   } finally {
     setSubmitting(false);
   }
