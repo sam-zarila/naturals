@@ -117,29 +117,29 @@ export function ShopProductSection() {
       setLoading(true);
       setErr(null);
       try {
-        const results = await Promise.all(
-          IDS.map(async (id) => {
-            const snap = await getDoc(doc(firestore, 'products', id));
-            return snap.exists() ? (snap.data() as ProductDocFromDb) : null;
-          })
-        );
+      const results = await Promise.all(
+        IDS.map(async (id) => {
+        const snap = await getDoc(doc(firestore, 'products', id));
+        return snap.exists() ? (snap.data() as ProductDocFromDb) : null;
+        })
+      );
 
-        if (!mounted) return;
+      if (!mounted) return;
 
-        const map: Partial<Record<ProductID, ProductDocFromDb>> = {};
-        results.forEach((p) => {
-          if (p) map[p.id] = p;
-        });
-        setProducts(map);
+      const map: Partial<Record<ProductID, ProductDocFromDb>> = {};
+      results.forEach((p) => {
+        if (p) map[p.id] = p;
+      });
+      setProducts(map);
 
-        const available = IDS.filter((id) => map[id]);
-        if (available.length && !map[selectedId]) setSelectedId(available[0]);
-      } catch (e: any) {
-        if (!mounted) return;
-        setErr(e?.message || 'Failed to load products');
-        setProducts({});
+      const available = IDS.filter((id) => map[id]);
+      if (available.length && !map[selectedId]) setSelectedId(available[0]);
+      } catch (e) {
+      if (!mounted) return;
+      setErr((e instanceof Error ? e.message : 'Failed to load products'));
+      setProducts({});
       } finally {
-        if (mounted) setLoading(false);
+      if (mounted) setLoading(false);
       }
     })();
     return () => {
