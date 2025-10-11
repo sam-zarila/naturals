@@ -5,8 +5,12 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+
+import { doc, getDoc } from 'firebase/firestore';
+import { firestore } from '../lib/firebase-client';
+
 /* ──────────────────────────────────────────────────────────────────────────────
-   Simple breadcrumb: Home → Shop
+   Icons + Breadcrumb
 ────────────────────────────────────────────────────────────────────────────── */
 function IconHome({ className }: { className?: string }) {
   return (
@@ -37,7 +41,6 @@ function BreadcrumbsHomeShop() {
     <nav aria-label="Breadcrumb" className="bg-gradient-to-b from-emerald-50/60 to-white border-b">
       <div className="max-w-6xl mx-auto px-4 py-3">
         <ol className="flex flex-wrap items-center gap-1.5">
-          {/* Home */}
           <li>
             <Link
               href="/"
@@ -54,7 +57,6 @@ function BreadcrumbsHomeShop() {
             <IconChevron className="w-4 h-4" />
           </li>
 
-          {/* Shop (current) */}
           <li aria-current="page">
             <span className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 text-white px-3 py-1.5 text-sm shadow">
               <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-white/20 border border-white/30">
@@ -70,106 +72,96 @@ function BreadcrumbsHomeShop() {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   Catalog (two products): detox-60 & growth-100
-   (Rename type to avoid clashes elsewhere)
+   Types / IDs
 ────────────────────────────────────────────────────────────────────────────── */
-type ProductSpec = {
-  id: 'detox-60' | 'growth-100';
+const IDS = ['detox-60', 'growth-100'] as const;
+type ProductID = typeof IDS[number];
+
+type ProductDocFromDb = {
+  id: ProductID;
   name: string;
   size: string;
   inStock: boolean;
   price: number;
-  image: string;
-  gallery: string[];
   blurb: string;
   howToUse: string[];
   benefits: string[];
+  gallery: string[];
   rating: number;
   reviews: number;
-};
-
-const CATALOG: Record<ProductSpec['id'], ProductSpec> = {
-  'detox-60': {
-    id: 'detox-60',
-    name: 'Scalp Detox Oil',
-    size: '60ml',
-    inStock: true,
-    price: 260,
-    image: '/products/hair-growth-oil-100ml.png',
-    gallery: [
-      '/products/hair-growth-oil-100ml.jpeg',
-      '/hero/hair-growth-oil-100ml2.jpeg',
-      '/products/hair-growth-oil-100ml.jpeg',
-    ],
-    blurb:
-      'A purifying scalp treatment that removes buildup, balances oil production, and optimises the environment for healthy hair growth.',
-    howToUse: [
-      'Part hair and apply a few drops directly to the scalp.',
-      'Massage for 2–3 minutes to stimulate circulation.',
-      'Leave on 20–30 minutes (or overnight) before wash day.',
-      'Use 2–3x per week for best results.',
-    ],
-    benefits: ['Clarifies', 'Balances Oil', 'Soothes Scalp', 'Boosts Growth'],
-    rating: 4.9,
-    reviews: 320,
-  },
-  'growth-100': {
-    id: 'growth-100',
-    name: 'Mega Potent Hair Growth Oil',
-    size: '100ml',
-    inStock: true,
-    price: 300,
-    image: '/products/hair-growth-oil-100ml.png',
-    gallery: [
-      '/hero/hair-growth-oil-100ml.jpeg',
-      '/hero/hair-growth-oil-100ml1.jpeg',
-      '/products/hair-growth-oil-100ml12.jpeg',
-    ],
-    blurb:
-      'An indulgent Ayurvedic blend designed to strengthen strands, nourish the scalp, and encourage thicker, healthier growth.',
-    howToUse: [
-      'Warm a small amount between palms and apply to scalp and lengths.',
-      'Massage gently for 2–3 minutes.',
-      'Leave in as a sealing oil or pre-poo treatment before shampoo.',
-      'Use 3–4x per week focusing on fragile areas.',
-    ],
-    benefits: ['Strengthens', 'Seals Moisture', 'Nourishes Roots', 'Improves Shine'],
-    rating: 5.0,
-    reviews: 510,
-  },
+  updatedAt: number;
 };
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   Page component: **NO NAVBAR**, just breadcrumb + dynamic product section
+   Main component – Client-side Firestore read (no /api)
 ────────────────────────────────────────────────────────────────────────────── */
 export function ShopProductSection() {
-  // selected product
-  const [selectedId, setSelectedId] = useState<ProductSpec['id']>('detox-60');
-  const product = CATALOG[selectedId];
+  const [selectedId, setSelectedId] = useState<ProductID>('detox-60');
+  const [products, setProducts] = useState<Partial<Record<ProductID, ProductDocFromDb>>>({});
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
 
-  // gallery / UI state
   const [active, setActive] = useState(0);
   const [qty, setQty] = useState(1);
   const [open, setOpen] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
 
-  // Toast state
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   const toastTimer = useRef<number | undefined>(undefined);
 
-  const priceDisplay = useMemo(() => `R${product.price.toLocaleString('en-ZA')}`, [product.price]);
+  // Load both product docs from Firestore
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      setErr(null);
+      try {
+        const results = await Promise.all(
+          IDS.map(async (id) => {
+            const snap = await getDoc(doc(firestore, 'products', id));
+            return snap.exists() ? (snap.data() as ProductDocFromDb) : null;
+          })
+        );
 
-  // reset gallery + qty when switching product
+        if (!mounted) return;
+
+        const map: Partial<Record<ProductID, ProductDocFromDb>> = {};
+        results.forEach((p) => {
+          if (p) map[p.id] = p;
+        });
+        setProducts(map);
+
+        const available = IDS.filter((id) => map[id]);
+        if (available.length && !map[selectedId]) setSelectedId(available[0]);
+      } catch (e: any) {
+        if (!mounted) return;
+        setErr(e?.message || 'Failed to load products');
+        setProducts({});
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const product = products[selectedId];
+
+  const priceDisplay = useMemo(
+    () => (product ? `R${Number(product.price || 0).toLocaleString('en-ZA')}` : ''),
+    [product]
+  );
+
   useEffect(() => {
     setActive(0);
     setQty(1);
   }, [selectedId]);
 
-  // ——— Cart helpers
+  // cart
   const CART_KEY = 'dn-cart';
   type CartRow = { id: string; qty: number };
-
   const readCart = (): CartRow[] => {
     try {
       const raw = localStorage.getItem(CART_KEY);
@@ -183,9 +175,7 @@ export function ShopProductSection() {
       return [];
     }
   };
-  const writeCart = (rows: CartRow[]) => {
-    localStorage.setItem(CART_KEY, JSON.stringify(rows));
-  };
+  const writeCart = (rows: CartRow[]) => localStorage.setItem(CART_KEY, JSON.stringify(rows));
 
   const showToast = (message: string) => {
     setToastMsg(message);
@@ -195,6 +185,7 @@ export function ShopProductSection() {
   };
 
   const addToCart = () => {
+    if (!product) return;
     const addQty = Math.max(1, Math.min(99, qty));
     const cart = readCart();
     const i = cart.findIndex((r) => r.id === product.id);
@@ -202,7 +193,6 @@ export function ShopProductSection() {
     else cart.push({ id: product.id, qty: addQty });
     writeCart(cart);
 
-    // event for badges/mini-cart
     try {
       window.dispatchEvent(new CustomEvent('cart:add', { detail: { id: product.id, qty: addQty } }));
     } catch {}
@@ -212,20 +202,19 @@ export function ShopProductSection() {
     showToast(`Added ${addQty} × ${product.name} to cart`);
   };
 
+  const options = (IDS.filter((id) => products[id]) as ProductID[]).map((id) => ({
+    id,
+    label: products[id]!.name,
+  }));
+
   return (
     <>
-      {/* Pretty breadcrumb bar */}
       <BreadcrumbsHomeShop />
 
-      {/* Product picker (segmented control) */}
+      {/* Product picker */}
       <div className="max-w-6xl mx-auto px-4 pt-6">
         <div className="inline-flex rounded-2xl border bg-white p-1 shadow-sm">
-          {(
-            [
-              { id: 'detox-60', label: 'Scalp Detox Oil' },
-              { id: 'growth-100', label: 'Mega Potent Oil' },
-            ] as const
-          ).map((opt) => {
+          {options.map((opt) => {
             const activeBtn = selectedId === opt.id;
             return (
               <button
@@ -241,207 +230,206 @@ export function ShopProductSection() {
             );
           })}
         </div>
+        {loading && <div className="mt-2 text-xs text-neutral-500">Loading products…</div>}
+        {!loading && !err && options.length === 0 && (
+          <div className="mt-2 text-xs text-red-600">No products found in Firestore.</div>
+        )}
+        {err && <div className="mt-2 text-xs text-red-600">{err}</div>}
       </div>
 
-      <section className="relative bg-gradient-to-b from-white via-white to-emerald-50/20">
-        {/* soft ambient glows */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -z-10 -top-24 -left-24 h-72 w-72 rounded-full blur-3xl"
-          style={{ background: 'radial-gradient(circle, rgba(16,185,129,.15), transparent 60%)' }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -z-10 -bottom-24 -right-24 h-80 w-80 rounded-full blur-3xl"
-          style={{ background: 'radial-gradient(circle, rgba(2,132,199,.12), transparent 60%)' }}
-        />
+      {/* Only render if we have a product */}
+      {product && (
+        <section className="relative bg-gradient-to-b from-white via-white to-emerald-50/20">
+          {/* glows */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -z-10 -top-24 -left-24 h-72 w-72 rounded-full blur-3xl"
+            style={{ background: 'radial-gradient(circle, rgba(16,185,129,.15), transparent 60%)' }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -z-10 -bottom-24 -right-24 h-80 w-80 rounded-full blur-3xl"
+            style={{ background: 'radial-gradient(circle, rgba(2,132,199,.12), transparent 60%)' }}
+          />
 
-        <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-            {/* ——— Left: Gallery Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="relative rounded-[22px] border border-neutral-100/80 bg-white/70 backdrop-blur-sm shadow-[0_20px_40px_rgba(0,0,0,0.06)] p-3"
-            >
-              <div className="relative aspect-[4/4] rounded-[18px] bg-neutral-100 overflow-hidden grid place-items-center">
-                <Image
-                  key={`${product.id}-${active}`}
-                  src={product.gallery[active]}
-                  alt={product.name}
-                  fill
-                  sizes="(min-width:768px) 550px, 90vw"
-                  className="object-contain p-8 md:p-10 transition-transform duration-500 will-change-transform hover:scale-[1.03]"
-                  priority
-                />
-                <div className="absolute left-4 top-4 flex gap-2">
-                  <span className="rounded-full bg-emerald-600 text-white text-[11px] px-2 py-1">
-                    {product.inStock ? 'In Stock' : 'Out of Stock'}
-                  </span>
-                  <span className="rounded-full bg-black/80 text-white text-[11px] px-2 py-1">Best Seller</span>
-                </div>
-              </div>
-
-              {/* thumbnails */}
-              <div className="mt-3 grid grid-cols-3 gap-3">
-                {product.gallery.map((src, i) => (
-                  <button
-                    key={src + i}
-                    onClick={() => setActive(i)}
-                    className={`relative aspect-square rounded-xl border transition ${
-                      active === i ? 'border-neutral-900' : 'border-neutral-200 hover:border-neutral-300'
-                    }`}
-                    aria-label={`Show image ${i + 1}`}
-                  >
-                    <Image src={src} alt="" fill className="object-contain p-2" />
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* ——— Right: Details Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="relative"
-            >
-              <h2 className="text-[28px] md:text-[32px] leading-snug font-semibold text-neutral-900">
-                {product.name}
-              </h2>
-
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
-                <span className="text-sky-600">{product.size}</span>
-                <span className="text-neutral-400">•</span>
-                <span className="text-neutral-500">{product.inStock ? 'In Stock' : 'Out of Stock'}</span>
-                <span className="text-neutral-400">•</span>
-                <Rating rating={product.rating} reviews={product.reviews} />
-              </div>
-
-              <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 shadow-sm">
-                <span className="text-xl font-semibold text-neutral-900">{priceDisplay}</span>
-                <span className="text-[11px] text-neutral-500">incl. VAT</span>
-              </div>
-
-              <p className="mt-4 text-[15px] leading-relaxed text-neutral-700 max-w-prose">{product.blurb}</p>
-
-              {/* benefit chips */}
-              <div className="mt-4 flex flex-wrap gap-2">
-                {product.benefits.map((b) => (
-                  <span key={b} className="inline-flex items-center rounded-full border px-3 py-1 text-xs text-neutral-700 bg-white">
-                    ✨ {b}
-                  </span>
-                ))}
-              </div>
-
-              {/* qty */}
-              <div className="mt-6 flex items-center gap-3">
-                <QtyStepper qty={qty} onChange={setQty} />
-              </div>
-
-              {/* add to cart */}
-              <ShinyButton onClick={addToCart} className="mt-4 w-full md:w-[420px]">
-                Add to Cart
-              </ShinyButton>
-
-              {/* confetti */}
-              <AnimatePresence>{celebrate && <ConfettiBurst key="confetti" />}</AnimatePresence>
-
-              {/* How to use */}
-              <div className="mt-6 md:w-[420px]">
-                <Accordion title="How to use" open={open} onToggle={() => setOpen((v) => !v)}>
-                  <ul className="list-disc list-inside space-y-1 text-sm text-neutral-700">
-                    {product.howToUse.map((step) => (
-                      <li key={step}>{step}</li>
-                    ))}
-                  </ul>
-                </Accordion>
-              </div>
-
-              {/* reassurance bar */}
-              <div className="mt-6 grid grid-cols-3 gap-2 text-[11px] text-neutral-600">
-                <BadgeLine icon="🚚" text="Fast delivery" />
-                <BadgeLine icon="🔒" text="Secure checkout" />
-                <BadgeLine icon="🌿" text="100% natural" />
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Reviews anchor */}
-          <div className="mt-10 rounded-2xl border bg-white p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-lg font-semibold text-emerald-950">Customer Reviews</div>
-              <div className="text-sm text-neutral-600">
-                <strong>{product.rating.toFixed(1)}</strong> / 5 · {product.reviews} reviews
-              </div>
-            </div>
-            <p className="mt-2 text-sm text-neutral-700">
-              Love our {product.name}? <Link href="/reviews" className="underline">Read more →</Link>
-            </p>
-          </div>
-
-          {/* Support anchor */}
-          <div className="mt-8 grid sm:grid-cols-3 gap-3">
-            <a
-              href="https://wa.me/27672943837"
-              target="_blank"
-              rel="noreferrer"
-              className="block rounded-xl border bg-white p-4 text-sm hover:-translate-y-0.5 hover:shadow transition"
-            >
-              <div className="font-medium text-emerald-950">WhatsApp Support</div>
-              <div className="text-neutral-600 mt-1">Fast help & order updates</div>
-            </a>
-            <a
-              href="mailto:hello@delightfulnaturals.co.za"
-              className="block rounded-xl border bg-white p-4 text-sm hover:-translate-y-0.5 hover:shadow transition"
-            >
-              <div className="font-medium text-emerald-950">Email</div>
-              <div className="text-neutral-600 mt-1">hello@delightfulnaturals.co.za</div>
-            </a>
-            <div className="rounded-xl border bg-white p-4 text-sm">
-              <div className="font-medium text-emerald-950">Shipping</div>
-              <div className="text-neutral-600 mt-1">2–4 business days (typical)</div>
-            </div>
-          </div>
-        </div>
-
-        {/* ✅ Toast: item added to cart — CENTERED */}
-        <AnimatePresence>
-          {toastOpen && (
-            <motion.div
-              role="status"
-              aria-live="polite"
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-[100] grid place-items-center p-4 pointer-events-none"
-            >
-              <div className="pointer-events-auto flex items-start gap-3 rounded-2xl border border-emerald-200 bg-white p-3 shadow-[0_12px_30px_rgba(16,185,129,0.18)]">
-                <span className="grid place-items-center w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
-                  ✓
-                </span>
-                <div className="pr-2">
-                  <div className="text-sm font-medium text-emerald-900">Item added to cart</div>
-                  <div className="text-xs text-emerald-800/80">{toastMsg}</div>
-                  <div className="mt-2 flex gap-2">
-                    <Link href="/cart" className="inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs bg-emerald-600 text-white">
-                      View cart
-                    </Link>
-                    <button
-                      onClick={() => setToastOpen(false)}
-                      className="inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs border"
-                    >
-                      Close
-                    </button>
+          <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+              {/* Left: Gallery */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="relative rounded-[22px] border border-neutral-100/80 bg-white/70 backdrop-blur-sm shadow-[0_20px_40px_rgba(0,0,0,0.06)] p-3"
+              >
+                <div className="relative aspect-[4/4] rounded-[18px] bg-neutral-100 overflow-hidden grid place-items-center">
+                  <Image
+                    key={`${product.id}-${active}`}
+                    src={product.gallery[active]}
+                    alt={product.name}
+                    fill
+                    sizes="(min-width:768px) 550px, 90vw"
+                    className="object-contain p-8 md:p-10 transition-transform duration-500 will-change-transform hover:scale-[1.03]"
+                    priority
+                  />
+                  <div className="absolute left-4 top-4 flex gap-2">
+                    <span className="rounded-full bg-emerald-600 text-white text-[11px] px-2 py-1">
+                      {product.inStock ? 'In Stock' : 'Out of Stock'}
+                    </span>
+                    <span className="rounded-full bg-black/80 text-white text-[11px] px-2 py-1">Best Seller</span>
                   </div>
                 </div>
+
+                <div className="mt-3 grid grid-cols-3 gap-3">
+                  {product.gallery.map((src, i) => (
+                    <button
+                      key={src + i}
+                      onClick={() => setActive(i)}
+                      className={`relative aspect-square rounded-xl border transition ${
+                        active === i ? 'border-neutral-900' : 'border-neutral-200 hover:border-neutral-300'
+                      }`}
+                      aria-label={`Show image ${i + 1}`}
+                    >
+                      <Image src={src} alt="" fill className="object-contain p-2" />
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+
+              {/* Right: Details */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="relative"
+              >
+                <h2 className="text-[28px] md:text-[32px] leading-snug font-semibold text-neutral-900">
+                  {product.name}
+                </h2>
+
+                <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+                  <span className="text-sky-600">{product.size}</span>
+                  <span className="text-neutral-400">•</span>
+                  <span className="text-neutral-500">{product.inStock ? 'In Stock' : 'Out of Stock'}</span>
+                  <span className="text-neutral-400">•</span>
+                  <Rating rating={product.rating} reviews={product.reviews} />
+                </div>
+
+                <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 shadow-sm">
+                  <span className="text-xl font-semibold text-neutral-900">{priceDisplay}</span>
+                  <span className="text-[11px] text-neutral-500">incl. VAT</span>
+                </div>
+
+                <p className="mt-4 text-[15px] leading-relaxed text-neutral-700 max-w-prose">{product.blurb}</p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {product.benefits.map((b) => (
+                    <span key={b} className="inline-flex items-center rounded-full border px-3 py-1 text-xs text-neutral-700 bg-white">
+                      ✨ {b}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="mt-6 flex items-center gap-3">
+                  <QtyStepper qty={qty} onChange={setQty} />
+                </div>
+
+                <ShinyButton onClick={addToCart} className="mt-4 w-full md:w-[420px]">
+                  Add to Cart
+                </ShinyButton>
+
+                <AnimatePresence>{celebrate && <ConfettiBurst key="confetti" />}</AnimatePresence>
+
+                <div className="mt-6 md:w-[420px]">
+                  <Accordion title="How to use" open={open} onToggle={() => setOpen((v) => !v)}>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-neutral-700">
+                      {product.howToUse.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ul>
+                  </Accordion>
+                </div>
+
+                <div className="mt-6 grid grid-cols-3 gap-2 text-[11px] text-neutral-600">
+                  <BadgeLine icon="🚚" text="Fast delivery" />
+                  <BadgeLine icon="🔒" text="Secure checkout" />
+                  <BadgeLine icon="🌿" text="100% natural" />
+                </div>
+              </motion.div>
+            </div>
+
+            <div className="mt-10 rounded-2xl border bg-white p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-lg font-semibold text-emerald-950">Customer Reviews</div>
+                <div className="text-sm text-neutral-600">
+                  <strong>{product.rating.toFixed(1)}</strong> / 5 · {product.reviews} reviews
+                </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </section>
+              <p className="mt-2 text-sm text-neutral-700">
+                Love our {product.name}? <Link href="/reviews" className="underline">Read more →</Link>
+              </p>
+            </div>
+
+            <div className="mt-8 grid sm:grid-cols-3 gap-3">
+              <a
+                href="https://wa.me/27672943837"
+                target="_blank"
+                rel="noreferrer"
+                className="block rounded-xl border bg-white p-4 text-sm hover:-translate-y-0.5 hover:shadow transition"
+              >
+                <div className="font-medium text-emerald-950">WhatsApp Support</div>
+                <div className="text-neutral-600 mt-1">Fast help & order updates</div>
+              </a>
+              <a
+                href="mailto:hello@delightfulnaturals.co.za"
+                className="block rounded-xl border bg-white p-4 text-sm hover:-translate-y-0.5 hover:shadow transition"
+              >
+                <div className="font-medium text-emerald-950">Email</div>
+                <div className="text-neutral-600 mt-1">hello@delightfulnaturals.co.za</div>
+              </a>
+              <div className="rounded-xl border bg-white p-4 text-sm">
+                <div className="font-medium text-emerald-950">Shipping</div>
+                <div className="text-neutral-600 mt-1">2–4 business days (typical)</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Toast */}
+          <AnimatePresence>
+            {toastOpen && (
+              <motion.div
+                role="status"
+                aria-live="polite"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 z-[100] grid place-items-center p-4 pointer-events-none"
+              >
+                <div className="pointer-events-auto flex items-start gap-3 rounded-2xl border border-emerald-200 bg-white p-3 shadow-[0_12px_30px_rgba(16,185,129,0.18)]">
+                  <span className="grid place-items-center w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                    ✓
+                  </span>
+                  <div className="pr-2">
+                    <div className="text-sm font-medium text-emerald-900">Item added to cart</div>
+                    <div className="text-xs text-emerald-800/80">{toastMsg}</div>
+                    <div className="mt-2 flex gap-2">
+                      <Link href="/cart" className="inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs bg-emerald-600 text-white">
+                        View cart
+                      </Link>
+                      <button
+                        onClick={() => setToastOpen(false)}
+                        className="inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs border"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </section>
+      )}
     </>
   );
 }
@@ -569,7 +557,6 @@ function BadgeLine({ icon, text }: { icon: string; text: string }) {
   );
 }
 
-/* Confetti without extra libs — simple floating bits */
 function ConfettiBurst() {
   const bits = Array.from({ length: 14 }).map((_, i) => i);
   return (
@@ -591,9 +578,7 @@ function ConfettiBurst() {
               animate={{ x, y, rotate: rot, opacity: 0 }}
               transition={{ duration: 1.1, ease: 'easeOut' }}
               className="absolute block w-2 h-2 rounded-sm"
-              style={{
-                backgroundColor: ['#10B981', '#F59E0B', '#0EA5E9', '#111827'][b % 4],
-              }}
+              style={{ backgroundColor: ['#10B981', '#F59E0B', '#0EA5E9', '#111827'][b % 4] }}
             />
           );
         })}
