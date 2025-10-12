@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-// 👇 IMPORTANT: use LITE functions here
 import { doc, getDoc } from 'firebase/firestore/lite';
 import { firestore } from '../lib/firebase-client';
 
@@ -91,7 +90,7 @@ type ProductDocFromDb = {
 /* ───────────────────────────────────────────
    Main component – Client-side Firestore read
 ─────────────────────────────────────────── */
-function ShopProductSection() {
+function ShopProductSectionInner() {
   const [selectedId, setSelectedId] = useState<ProductID>('detox-60');
   const [products, setProducts] = useState<Partial<Record<ProductID, ProductDocFromDb>>>({});
   const [loading, setLoading] = useState(true);
@@ -106,10 +105,14 @@ function ShopProductSection() {
   const [toastMsg, setToastMsg] = useState('');
   const toastTimer = useRef<number | undefined>(undefined);
 
+  // image fallback if a URL 404s
+  const [imgError, setImgError] = useState(false);
+
   // Loader used on mount and by the Refresh button
   const loadProducts = async () => {
     setLoading(true);
     setErr(null);
+    setImgError(false);
     try {
       const results = await Promise.all(
         IDS.map(async (id) => {
@@ -142,7 +145,7 @@ function ShopProductSection() {
 
   const product = products[selectedId];
   const gallery = product?.gallery ?? [];
-  const mainImageSrc = gallery[active] || '/placeholder.svg?height=600&width=600';
+  const mainImageSrc = !imgError && gallery[active] ? gallery[active] : '/placeholder.svg';
 
   const priceDisplay = useMemo(
     () => (product ? `R${Number(product.price || 0).toLocaleString('en-ZA')}` : ''),
@@ -152,6 +155,7 @@ function ShopProductSection() {
   useEffect(() => {
     setActive(0);
     setQty(1);
+    setImgError(false);
   }, [selectedId]);
 
   // cart
@@ -289,13 +293,15 @@ function ShopProductSection() {
               >
                 <div className="relative aspect-[4/4] rounded-[18px] bg-neutral-100 overflow-hidden grid place-items-center">
                   <Image
-                    key={`${product.id}-${active}`}
+                    key={`${product.id}-${active}-${imgError ? 'err' : 'ok'}`}
                     src={mainImageSrc}
                     alt={product.name}
                     fill
                     sizes="(min-width:768px) 550px, 90vw"
                     className="object-contain p-8 md:p-10 transition-transform duration-500 will-change-transform hover:scale-[1.03]"
                     priority
+                    onError={() => setImgError(true)}
+                    unoptimized
                   />
                   <div className="absolute left-4 top-4 flex gap-2">
                     <span className="rounded-full bg-emerald-600 text-white text-[11px] px-2 py-1">
@@ -309,13 +315,13 @@ function ShopProductSection() {
                   {(gallery.length ? gallery : []).map((src, i) => (
                     <button
                       key={src + i}
-                      onClick={() => setActive(i)}
+                      onClick={() => { setActive(i); setImgError(false); }}
                       className={`relative aspect-square rounded-xl border transition ${
                         active === i ? 'border-neutral-900' : 'border-neutral-200 hover:border-neutral-300'
                       }`}
                       aria-label={`Show image ${i + 1}`}
                     >
-                      <Image src={src} alt="" fill className="object-contain p-2" />
+                      <Image src={src} alt="" fill className="object-contain p-2" unoptimized />
                     </button>
                   ))}
                   {!gallery.length && (
@@ -509,7 +515,8 @@ function ConfettiBurst() {
   );
 }
 
-/* Default export for Next.js page */
+/* Export both named and default (so either import style works) */
+export const ShopProductSection = ShopProductSectionInner;
 export default function Page() {
-  return <ShopProductSection />;
+  return <ShopProductSectionInner />;
 }
