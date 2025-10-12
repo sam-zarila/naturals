@@ -5,12 +5,14 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { doc, getDoc } from 'firebase/firestore';
+// 👇 IMPORTANT: use LITE functions here
+import { doc, getDoc } from 'firebase/firestore/lite';
 import { firestore } from '../lib/firebase-client';
 
-/* ──────────────────────────────────────────────────────────────────────────────
+
+/* ───────────────────────────────────────────
    Icons + Breadcrumb
-────────────────────────────────────────────────────────────────────────────── */
+─────────────────────────────────────────── */
 function IconHome({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -34,7 +36,6 @@ function IconChevron({ className }: { className?: string }) {
     </svg>
   );
 }
-
 function BreadcrumbsHomeShop() {
   return (
     <nav aria-label="Breadcrumb" className="bg-gradient-to-b from-emerald-50/60 to-white border-b">
@@ -51,11 +52,7 @@ function BreadcrumbsHomeShop() {
               <span className="font-medium">Home</span>
             </Link>
           </li>
-
-          <li aria-hidden className="px-1 text-emerald-700/60">
-            <IconChevron className="w-4 h-4" />
-          </li>
-
+          <li aria-hidden className="px-1 text-emerald-700/60"><IconChevron className="w-4 h-4" /></li>
           <li aria-current="page">
             <span className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 text-white px-3 py-1.5 text-sm shadow">
               <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-white/20 border border-white/30">
@@ -70,9 +67,9 @@ function BreadcrumbsHomeShop() {
   );
 }
 
-/* ──────────────────────────────────────────────────────────────────────────────
+/* ───────────────────────────────────────────
    Types / IDs
-────────────────────────────────────────────────────────────────────────────── */
+─────────────────────────────────────────── */
 const IDS = ['detox-60', 'growth-100'] as const;
 type ProductID = typeof IDS[number];
 
@@ -85,16 +82,16 @@ type ProductDocFromDb = {
   blurb: string;
   howToUse: string[];
   benefits: string[];
-  gallery: string[];
+  gallery: string[]; // image URLs
   rating: number;
   reviews: number;
   updatedAt: number;
 };
 
-/* ──────────────────────────────────────────────────────────────────────────────
-   Main component – Client-side Firestore read (no /api)
-────────────────────────────────────────────────────────────────────────────── */
-export function ShopProductSection() {
+/* ───────────────────────────────────────────
+   Main component – Client-side Firestore read
+─────────────────────────────────────────── */
+function ShopProductSection() {
   const [selectedId, setSelectedId] = useState<ProductID>('detox-60');
   const [products, setProducts] = useState<Partial<Record<ProductID, ProductDocFromDb>>>({});
   const [loading, setLoading] = useState(true);
@@ -245,15 +242,13 @@ export function ShopProductSection() {
         </div>
       </div>
 
-      {/* Empty state (no products) with Refresh (no link to admin) */}
+      {/* Empty state (no products) */}
       {noProducts && (
         <section className="py-16">
           <div className="max-w-6xl mx-auto px-4">
             <div className="rounded-2xl border bg-white p-8 text-center">
               <div className="text-2xl font-semibold text-neutral-900">No products found</div>
-              <p className="mt-2 text-neutral-600">
-                When products are added, they’ll appear here automatically.
-              </p>
+              <p className="mt-2 text-neutral-600">When products are added, they’ll appear here automatically.</p>
               <div className="mt-4">
                 <button
                   onClick={loadProducts}
@@ -268,7 +263,7 @@ export function ShopProductSection() {
         </section>
       )}
 
-      {/* Only render if we have a product */}
+      {/* Product section */}
       {product && (
         <section className="relative bg-gradient-to-b from-white via-white to-emerald-50/20">
           {/* glows */}
@@ -334,15 +329,8 @@ export function ShopProductSection() {
               </motion.div>
 
               {/* Right: Details */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="relative"
-              >
-                <h2 className="text-[28px] md:text-[32px] leading-snug font-semibold text-neutral-900">
-                  {product.name}
-                </h2>
+              <motion.div initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="relative">
+                <h2 className="text-[28px] md:text-[32px] leading-snug font-semibold text-neutral-900">{product.name}</h2>
 
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
                   <span className="text-sky-600">{product.size}</span>
@@ -371,18 +359,14 @@ export function ShopProductSection() {
                   <QtyStepper qty={qty} onChange={setQty} />
                 </div>
 
-                <ShinyButton onClick={addToCart} className="mt-4 w-full md:w-[420px]">
-                  Add to Cart
-                </ShinyButton>
+                <ShinyButton onClick={addToCart} className="mt-4 w-full md:w-[420px]">Add to Cart</ShinyButton>
 
                 <AnimatePresence>{celebrate && <ConfettiBurst key="confetti" />}</AnimatePresence>
 
                 <div className="mt-6 md:w-[420px]">
                   <Accordion title="How to use" open={open} onToggle={() => setOpen((v) => !v)}>
                     <ul className="list-disc list-inside space-y-1 text-sm text-neutral-700">
-                      {product.howToUse.map((step) => (
-                        <li key={step}>{step}</li>
-                      ))}
+                      {product.howToUse.map((step) => (<li key={step}>{step}</li>))}
                     </ul>
                   </Accordion>
                 </div>
@@ -405,29 +389,6 @@ export function ShopProductSection() {
               <p className="mt-2 text-sm text-neutral-700">
                 Love our {product.name}? <Link href="/reviews" className="underline">Read more →</Link>
               </p>
-            </div>
-
-            <div className="mt-8 grid sm:grid-cols-3 gap-3">
-              <a
-                href="https://wa.me/27672943837"
-                target="_blank"
-                rel="noreferrer"
-                className="block rounded-xl border bg-white p-4 text-sm hover:-translate-y-0.5 hover:shadow transition"
-              >
-                <div className="font-medium text-emerald-950">WhatsApp Support</div>
-                <div className="text-neutral-600 mt-1">Fast help & order updates</div>
-              </a>
-              <a
-                href="mailto:hello@delightfulnaturals.co.za"
-                className="block rounded-xl border bg-white p-4 text-sm hover:-translate-y-0.5 hover:shadow transition"
-              >
-                <div className="font-medium text-emerald-950">Email</div>
-                <div className="text-neutral-600 mt-1">hello@delightfulnaturals.co.za</div>
-              </a>
-              <div className="rounded-xl border bg-white p-4 text-sm">
-                <div className="font-medium text-emerald-950">Shipping</div>
-                <div className="text-neutral-600 mt-1">2–4 business days (typical)</div>
-              </div>
             </div>
           </div>
 
@@ -454,10 +415,7 @@ export function ShopProductSection() {
                       <Link href="/cart" className="inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs bg-emerald-600 text-white">
                         View cart
                       </Link>
-                      <button
-                        onClick={() => setToastOpen(false)}
-                        className="inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs border"
-                      >
+                      <button onClick={() => setToastOpen(false)} className="inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs border">
                         Close
                       </button>
                     </div>
@@ -472,98 +430,44 @@ export function ShopProductSection() {
   );
 }
 
-/* ──────────────────────────────────────────────────────────────────────────────
+/* ───────────────────────────────────────────
    UI atoms
-────────────────────────────────────────────────────────────────────────────── */
+─────────────────────────────────────────── */
 function Rating({ rating, reviews }: { rating: number; reviews: number }) {
   const full = Math.floor(rating);
   const half = rating - full >= 0.5;
   return (
     <span className="inline-flex items-center gap-1 text-neutral-700">
       <span aria-label={`${rating} out of 5`} className="flex">
-        {Array.from({ length: full }).map((_, i) => (
-          <span key={`f${i}`} className="text-amber-500">★</span>
-        ))}
+        {Array.from({ length: full }).map((_, i) => (<span key={`f${i}`} className="text-amber-500">★</span>))}
         {half && <span className="text-amber-500/70">★</span>}
-        {Array.from({ length: 5 - full - (half ? 1 : 0) }).map((_, i) => (
-          <span key={`e${i}`} className="text-neutral-300">★</span>
-        ))}
+        {Array.from({ length: 5 - full - (half ? 1 : 0) }).map((_, i) => (<span key={`e${i}`} className="text-neutral-300">★</span>))}
       </span>
       <span className="text-xs text-neutral-500">{rating.toFixed(1)} • {reviews} reviews</span>
     </span>
   );
 }
-
 function QtyStepper({ qty, onChange }: { qty: number; onChange: (n: number) => void }) {
   return (
     <div className="inline-flex items-center rounded-xl border border-neutral-200 overflow-hidden bg-white shadow-sm">
-      <motion.button
-        whileTap={{ scale: 0.92 }}
-        className="w-10 h-10 grid place-items-center text-xl text-neutral-700 hover:bg-neutral-100"
-        onClick={() => onChange(Math.max(1, qty - 1))}
-        aria-label="Decrease quantity"
-      >
-        –
-      </motion.button>
+      <motion.button whileTap={{ scale: 0.92 }} className="w-10 h-10 grid place-items-center text-xl text-neutral-700 hover:bg-neutral-100" onClick={() => onChange(Math.max(1, qty - 1))} aria-label="Decrease quantity">–</motion.button>
       <div className="w-12 h-10 grid place-items-center text-neutral-900">{qty}</div>
-      <motion.button
-        whileTap={{ scale: 0.92 }}
-        className="w-10 h-10 grid place-items-center text-xl text-neutral-700 hover:bg-neutral-100"
-        onClick={() => onChange(Math.min(99, qty + 1))}
-        aria-label="Increase quantity"
-      >
-        +
-      </motion.button>
+      <motion.button whileTap={{ scale: 0.92 }} className="w-10 h-10 grid place-items-center text-xl text-neutral-700 hover:bg-neutral-100" onClick={() => onChange(Math.min(99, qty + 1))} aria-label="Increase quantity">+</motion.button>
     </div>
   );
 }
-
-function ShinyButton({
-  children,
-  className = '',
-  onClick,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  onClick?: () => void;
-}) {
+function ShinyButton({ children, className = '', onClick }: { children: React.ReactNode; className?: string; onClick?: () => void; }) {
   return (
-    <motion.button
-      whileHover={{ scale: 1.01 }}
-      whileTap={{ scale: 0.985 }}
-      onClick={onClick}
-      className={`relative inline-flex h-11 items-center justify-center rounded-full bg-black text-white px-6 text-sm font-medium shadow-md overflow-hidden ${className}`}
-    >
-      <motion.span
-        aria-hidden
-        className="absolute inset-y-0 left-0 w-1/3 -skew-x-12 bg-white/20"
-        initial={{ x: '-120%' }}
-        animate={{ x: '120%' }}
-        transition={{ repeat: Infinity, duration: 1.8, ease: 'linear' }}
-      />
+    <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.985 }} onClick={onClick} className={`relative inline-flex h-11 items-center justify-center rounded-full bg-black text-white px-6 text-sm font-medium shadow-md overflow-hidden ${className}`}>
+      <motion.span aria-hidden className="absolute inset-y-0 left-0 w-1/3 -skew-x-12 bg-white/20" initial={{ x: '-120%' }} animate={{ x: '120%' }} transition={{ repeat: Infinity, duration: 1.8, ease: 'linear' }} />
       <span className="relative z-10">{children}</span>
     </motion.button>
   );
 }
-
-function Accordion({
-  title,
-  open,
-  onToggle,
-  children,
-}: {
-  title: string;
-  open: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}) {
+function Accordion({ title, open, onToggle, children }: { title: string; open: boolean; onToggle: () => void; children: React.ReactNode; }) {
   return (
     <div className="rounded-[14px] bg-white/80 backdrop-blur-sm border border-neutral-200 shadow-sm overflow-hidden">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 h-11 text-sm font-medium text-neutral-900"
-        aria-expanded={open}
-      >
+      <button onClick={onToggle} className="w-full flex items-center justify-between px-4 h-11 text-sm font-medium text-neutral-900" aria-expanded={open}>
         <span>{title}</span>
         <span className="inline-grid place-items-center w-6 h-6 rounded-full border border-neutral-300">
           <motion.span animate={{ rotate: open ? 45 : 0 }}>+</motion.span>
@@ -571,13 +475,7 @@ function Accordion({
       </button>
       <AnimatePresence initial={false}>
         {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.28 }}
-            className="px-4 pb-4"
-          >
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.28 }} className="px-4 pb-4">
             {children}
           </motion.div>
         )}
@@ -585,7 +483,6 @@ function Accordion({
     </div>
   );
 }
-
 function BadgeLine({ icon, text }: { icon: string; text: string }) {
   return (
     <div className="flex items-center gap-1.5 rounded-lg bg-white border border-neutral-200 px-2.5 py-1.5 shadow-sm">
@@ -594,33 +491,25 @@ function BadgeLine({ icon, text }: { icon: string; text: string }) {
     </div>
   );
 }
-
 function ConfettiBurst() {
   const bits = Array.from({ length: 14 }).map((_, i) => i);
   return (
-    <motion.div
-      initial={{ opacity: 1 }}
-      animate={{ opacity: 0 }}
-      transition={{ duration: 1.1 }}
-      className="pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2"
-    >
+    <motion.div initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ duration: 1.1 }} className="pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2">
       <div className="relative w-0 h-0">
         {bits.map((b) => {
           const x = (Math.random() - 0.5) * 220;
           const y = -Math.random() * 140 - 40;
           const rot = Math.random() * 180;
           return (
-            <motion.span
-              key={b}
-              initial={{ x: 0, y: 0, rotate: 0, opacity: 1 }}
-              animate={{ x, y, rotate: rot, opacity: 0 }}
-              transition={{ duration: 1.1, ease: 'easeOut' }}
-              className="absolute block w-2 h-2 rounded-sm"
-              style={{ backgroundColor: ['#10B981', '#F59E0B', '#0EA5E9', '#111827'][b % 4] }}
-            />
+            <motion.span key={b} initial={{ x: 0, y: 0, rotate: 0, opacity: 1 }} animate={{ x, y, rotate: rot, opacity: 0 }} transition={{ duration: 1.1, ease: 'easeOut' }} className="absolute block w-2 h-2 rounded-sm" style={{ backgroundColor: ['#10B981', '#F59E0B', '#0EA5E9', '#111827'][b % 4] }} />
           );
         })}
       </div>
     </motion.div>
   );
+}
+
+/* Default export for Next.js page */
+export default function Page() {
+  return <ShopProductSection />;
 }
