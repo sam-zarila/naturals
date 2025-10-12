@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-
 import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '../lib/firebase-client';
 
@@ -110,21 +109,17 @@ export function ShopProductSection() {
   const [toastMsg, setToastMsg] = useState('');
   const toastTimer = useRef<number | undefined>(undefined);
 
-  // Load both product docs from Firestore
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true);
-      setErr(null);
-      try {
+  // Loader used on mount and by the Refresh button
+  const loadProducts = async () => {
+    setLoading(true);
+    setErr(null);
+    try {
       const results = await Promise.all(
         IDS.map(async (id) => {
-        const snap = await getDoc(doc(firestore, 'products', id));
-        return snap.exists() ? (snap.data() as ProductDocFromDb) : null;
+          const snap = await getDoc(doc(firestore, 'products', id));
+          return snap.exists() ? (snap.data() as ProductDocFromDb) : null;
         })
       );
-
-      if (!mounted) return;
 
       const map: Partial<Record<ProductID, ProductDocFromDb>> = {};
       results.forEach((p) => {
@@ -134,20 +129,23 @@ export function ShopProductSection() {
 
       const available = IDS.filter((id) => map[id]);
       if (available.length && !map[selectedId]) setSelectedId(available[0]);
-      } catch (e) {
-      if (!mounted) return;
-      setErr((e instanceof Error ? e.message : 'Failed to load products'));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed to load products');
       setProducts({});
-      } finally {
-      if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // first load
+  useEffect(() => {
+    loadProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const product = products[selectedId];
+  const gallery = product?.gallery ?? [];
+  const mainImageSrc = gallery[active] || '/placeholder.svg?height=600&width=600';
 
   const priceDisplay = useMemo(
     () => (product ? `R${Number(product.price || 0).toLocaleString('en-ZA')}` : ''),
@@ -207,6 +205,8 @@ export function ShopProductSection() {
     label: products[id]!.name,
   }));
 
+  const noProducts = !loading && !err && options.length === 0;
+
   return (
     <>
       <BreadcrumbsHomeShop />
@@ -230,12 +230,43 @@ export function ShopProductSection() {
             );
           })}
         </div>
-        {loading && <div className="mt-2 text-xs text-neutral-500">Loading products…</div>}
-        {!loading && !err && options.length === 0 && (
-          <div className="mt-2 text-xs text-red-600">No products found in Firestore.</div>
-        )}
-        {err && <div className="mt-2 text-xs text-red-600">{err}</div>}
+        <div className="mt-2 flex items-center gap-3">
+          {loading && <div className="text-xs text-neutral-500">Loading products…</div>}
+          {err && <div className="text-xs text-red-600">{err}</div>}
+          {!loading && (
+            <button
+              onClick={loadProducts}
+              className="text-xs px-2.5 py-1.5 rounded-full border bg-white hover:bg-neutral-50"
+              type="button"
+            >
+              Refresh
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Empty state (no products) with Refresh (no link to admin) */}
+      {noProducts && (
+        <section className="py-16">
+          <div className="max-w-6xl mx-auto px-4">
+            <div className="rounded-2xl border bg-white p-8 text-center">
+              <div className="text-2xl font-semibold text-neutral-900">No products found</div>
+              <p className="mt-2 text-neutral-600">
+                When products are added, they’ll appear here automatically.
+              </p>
+              <div className="mt-4">
+                <button
+                  onClick={loadProducts}
+                  className="inline-flex items-center rounded-full bg-emerald-600 text-white px-5 py-2 text-sm"
+                  type="button"
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Only render if we have a product */}
       {product && (
@@ -264,7 +295,7 @@ export function ShopProductSection() {
                 <div className="relative aspect-[4/4] rounded-[18px] bg-neutral-100 overflow-hidden grid place-items-center">
                   <Image
                     key={`${product.id}-${active}`}
-                    src={product.gallery[active]}
+                    src={mainImageSrc}
                     alt={product.name}
                     fill
                     sizes="(min-width:768px) 550px, 90vw"
@@ -280,7 +311,7 @@ export function ShopProductSection() {
                 </div>
 
                 <div className="mt-3 grid grid-cols-3 gap-3">
-                  {product.gallery.map((src, i) => (
+                  {(gallery.length ? gallery : []).map((src, i) => (
                     <button
                       key={src + i}
                       onClick={() => setActive(i)}
@@ -292,6 +323,13 @@ export function ShopProductSection() {
                       <Image src={src} alt="" fill className="object-contain p-2" />
                     </button>
                   ))}
+                  {!gallery.length && (
+                    <>
+                      <div className="relative aspect-square rounded-xl border border-neutral-200 bg-neutral-50" />
+                      <div className="relative aspect-square rounded-xl border border-neutral-200 bg-neutral-50" />
+                      <div className="relative aspect-square rounded-xl border border-neutral-200 bg-neutral-50" />
+                    </>
+                  )}
                 </div>
               </motion.div>
 
