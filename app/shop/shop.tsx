@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import Image from 'next/image';
@@ -97,12 +95,13 @@ const CATALOG: Record<ProductSpec['id'], ProductSpec> = {
     size: '60ml',
     inStock: true,
     price: 260,
-    image: '/products/hair-growth-oil-100ml.png',
+    // ⬇️ swapped to use Mega Potent's gallery set
     gallery: [
-      '/products/hair-growth-oil-100ml.jpeg',
-      '/hero/hair-growth-oil-100ml2.jpeg',
-      '/products/hair-growth-oil-100ml.jpeg',
+      '/hero/hair-growth-oil-100ml.jpeg',
+      '/hero/hair-growth-oil-100ml1.jpeg',
+      '/products/hair-growth-oil-100ml12.jpeg',
     ],
+    image: '/hero/hair-growth-oil-100ml.jpeg',
     blurb:
       'A purifying scalp treatment that removes buildup, balances oil production, and optimises the environment for healthy hair growth.',
     howToUse: [
@@ -121,12 +120,13 @@ const CATALOG: Record<ProductSpec['id'], ProductSpec> = {
     size: '100ml',
     inStock: true,
     price: 300,
-    image: '/products/hair-growth-oil-100ml.png',
+    // ⬇️ swapped to use Scalp Detox's gallery set
     gallery: [
-      '/hero/hair-growth-oil-100ml.jpeg',
-      '/hero/hair-growth-oil-100ml1.jpeg',
-      '/products/hair-growth-oil-100ml12.jpeg',
+      '/products/hair-growth-oil-100ml.jpeg',
+      '/hero/hair-growth-oil-100ml2.jpeg',
+      '/products/hair-growth-oil-100ml.jpeg',
     ],
+    image: '/products/hair-growth-oil-100ml.jpeg',
     blurb:
       'An indulgent Ayurvedic blend designed to strengthen strands, nourish the scalp, and encourage thicker, healthier growth.',
     howToUse: [
