@@ -41,7 +41,7 @@ if (!getApps().length) {
     preferRest: !usingEmulator,
     // Prevents "Cannot use undefined as a Firestore value"
     ignoreUndefinedProperties: true,
-  } as any);
+  } as import("firebase-admin/firestore").FirestoreSettings);
 }
 
 // Export a single shared Admin Firestore instance

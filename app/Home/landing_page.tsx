@@ -985,19 +985,59 @@ type TestimonialDoc = {
   createdAt?: string | number | null;
 };
 
-function normalizeTestimonial(raw: any): TestimonialDoc {
-  const ratingNum = Number(raw?.rating);
+export function normalizeTestimonial(raw: unknown): TestimonialDoc {
+  const obj: Record<string, unknown> =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+
+  const isTimestamp = (v: unknown): v is { toMillis: () => number } =>
+    typeof v === "object" && v !== null && typeof (v as { toMillis?: unknown }).toMillis === "function";
+
+  const ratingNum = Number(obj["rating"]);
+
+  const id =
+    typeof obj["id"] === "string" && (obj["id"] as string).trim()
+      ? (obj["id"] as string)
+      : Math.random().toString(36).slice(2);
+
+  const name =
+    (typeof obj["name"] === "string" && (obj["name"] as string)) ||
+    (typeof obj["author"] === "string" && (obj["author"] as string)) ||
+    "Anonymous";
+
+  const role =
+    (typeof obj["role"] === "string" && (obj["role"] as string)) ||
+    (typeof obj["location"] === "string" && (obj["location"] as string)) ||
+    "Verified Purchase";
+
+  const text =
+    (typeof obj["text"] === "string" && (obj["text"] as string)) ||
+    (typeof obj["message"] === "string" && (obj["message"] as string)) ||
+    "";
+
+  const avatarUrl =
+    typeof obj["avatarUrl"] === "string" && (obj["avatarUrl"] as string).trim()
+      ? (obj["avatarUrl"] as string)
+      : "/avatars/1.jpg";
+
+  const ca = obj["createdAt"];
+  const createdAt =
+    typeof ca === "number" && Number.isFinite(ca)
+      ? ca
+      : isTimestamp(ca)
+      ? ca.toMillis()
+      : null;
+
   return {
-    id: String(raw?.id ?? Math.random().toString(36).slice(2)),
-    name: String(raw?.name ?? raw?.author ?? 'Anonymous'),
-    role: raw?.role ? String(raw.role) : String(raw?.location ?? 'Verified Purchase'),
-    text: String(raw?.text ?? raw?.message ?? ''),
+    id: String(id),
+    name: String(name),
+    role: String(role),
+    text: String(text),
     rating: Number.isFinite(ratingNum) ? Math.max(1, Math.min(5, ratingNum)) : 5,
-    // Use a local fallback to avoid Next Image remote config issues
-    avatarUrl: typeof raw?.avatarUrl === 'string' && raw.avatarUrl ? raw.avatarUrl : '/avatars/1.jpg',
-    createdAt: raw?.createdAt ?? null,
+    avatarUrl: String(avatarUrl),
+    createdAt,
   };
 }
+
 
 function Testimonials() {
   const [items, setItems] = useState<TestimonialDoc[]>([]);
@@ -1019,8 +1059,8 @@ function Testimonials() {
       const normalized = arr.map(normalizeTestimonial).filter((t) => t.text);
       setItems(normalized);
       setI(0);
-    } catch (e: any) {
-      setError(e?.message || 'Failed to load testimonials');
+    } catch (e: unknown) {
+      setError((e as Error)?.message || 'Failed to load testimonials');
       setItems([]);
     } finally {
       setLoading(false);

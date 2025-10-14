@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     const limit = Math.max(1, Math.min(50, Number(searchParams.get("limit") || 6)));
 
     // Query: published=true, latest first
-    let q = db
+    const q = db
       .collection("journal")
       .where("published", "==", true)
       .orderBy("publishedAt", "desc");
@@ -49,10 +49,10 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json({ ok: true, items });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("GET /api/journal failed", e);
     return NextResponse.json(
-      { ok: false, error: e?.message || "Unexpected error" },
+      { ok: false, error: (e as Error)?.message || "Unexpected error" },
       { status: 500 }
     );
   }
