@@ -22,7 +22,6 @@ import React, {
 } from 'react';
 import { createPortal } from 'react-dom';
 
-
 /* =============================================================================
    Types
 ============================================================================= */
@@ -114,6 +113,8 @@ function useCart(): CartContextValue {
   if (!ctx) throw new Error('useCart must be used within CartProvider');
   return ctx;
 }
+
+/* Icons */
 function IconLeaf({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
@@ -122,7 +123,6 @@ function IconLeaf({ className }: { className?: string }) {
     </svg>
   );
 }
-
 function IconQuestionCircle({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
@@ -132,7 +132,6 @@ function IconQuestionCircle({ className }: { className?: string }) {
     </svg>
   );
 }
-
 function IconStar({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className}>
@@ -145,7 +144,6 @@ function IconStar({ className }: { className?: string }) {
     </svg>
   );
 }
-
 function IconLifeBuoy({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
@@ -177,9 +175,10 @@ export default function LandingPage() {
 
           <OrganicIntro />
           <TransformCTA />
+          {/* Dynamic testimonials from /api/testimonials */}
           <Testimonials />
 
-          {/* Blog section (featured + carousel) */}
+          {/* Dynamic blog/journal from /api/journal */}
           <BlogSection />
 
           <FAQSection />
@@ -226,9 +225,6 @@ const SHOP_PRODUCTS: Array<{
 ];
 
 /* =============================================================================
-   Header (mobile-beautified)
-============================================================================= */
-/* =============================================================================
    Header (mobile-beautified) — with hamburger feedback on add-to-cart
 ============================================================================= */
 function useSectionSpy(ids: string[]) {
@@ -242,14 +238,12 @@ function useSectionSpy(ids: string[]) {
 
     const io = new IntersectionObserver(
       (entries) => {
-        // pick the most visible intersecting section
         const vis = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
         if (vis[0]) setActive((vis[0].target as HTMLElement).id);
       },
       {
-        // “middle of the screen” counts as active
         rootMargin: '-35% 0px -55% 0px',
         threshold: [0, 0.25, 0.5, 0.75, 1],
       },
@@ -267,9 +261,9 @@ function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
-  const [menuPing, setMenuPing] = useState(false);           // NEW
+  const [menuPing, setMenuPing] = useState(false);
   const pingTimer = useRef<number | null>(null);
-  const active = useSectionSpy(['home', 'testimonials', 'faqs', 'contact', 'support']);       // NEW
+  const active = useSectionSpy(['home', 'testimonials', 'faqs', 'contact', 'support']);
   const cart = useCart();
 
   const bg = useTransform(scrollY, [0, 120], ['rgba(235,244,235,0)', 'rgba(255,255,255,0.9)']);
@@ -320,7 +314,6 @@ function Header() {
       if (id) cart.add(id, qty);
       setCartOpen(true);
 
-      // show quick feedback on the hamburger button (mobile)
       setMenuPing(true);
       if (pingTimer.current) window.clearTimeout(pingTimer.current);
       pingTimer.current = window.setTimeout(() => setMenuPing(false), 1200);
@@ -332,7 +325,6 @@ function Header() {
     };
   }, [cart]);
 
-  // if menu is opened, clear the ping so it doesn't linger
   useEffect(() => {
     if (mobileOpen && menuPing) setMenuPing(false);
   }, [mobileOpen, menuPing]);
@@ -352,42 +344,40 @@ function Header() {
 
         {/* center: (desktop nav only) */}
         <nav className="hidden md:flex items-center justify-center gap-8">
-  <a
-    href="#home"
-    className={`navlink flex items-center gap-1.5 ${active === 'home' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
-  >
-    <IconLeaf className="w-4 h-4" aria-hidden />
-    <span>Home</span>
-  </a>
+          <a
+            href="#home"
+            className={`navlink flex items-center gap-1.5 ${active === 'home' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
+          >
+            <IconLeaf className="w-4 h-4" aria-hidden />
+            <span>Home</span>
+          </a>
 
-  <a
-    href="#faqs"
-    className={`navlink flex items-center gap-1.5 ${active === 'faqs' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
-  >
-    <IconQuestionCircle className="w-4 h-4" aria-hidden />
-    <span>FAQ</span>
-  </a>
+          <a
+            href="#faqs"
+            className={`navlink flex items-center gap-1.5 ${active === 'faqs' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
+          >
+            <IconQuestionCircle className="w-4 h-4" aria-hidden />
+            <span>FAQ</span>
+          </a>
 
-  <a
-    href="#testimonials"
-    className={`navlink flex items-center gap-1.5 ${active === 'testimonials' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
-  >
-    <IconStar className="w-4 h-4" aria-hidden />
-    <span>Testimonials</span>
-  </a>
+          <a
+            href="#testimonials"
+            className={`navlink flex items-center gap-1.5 ${active === 'testimonials' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
+          >
+            <IconStar className="w-4 h-4" aria-hidden />
+            <span>Testimonials</span>
+          </a>
 
-  <a
-    href="#support"
-    className={`navlink flex items-center gap-1.5 ${active === 'support' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
-  >
-    <IconLifeBuoy className="w-4 h-4" aria-hidden />
-    <span>Support</span>
-  </a>
+          <a
+            href="#support"
+            className={`navlink flex items-center gap-1.5 ${active === 'support' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
+          >
+            <IconLifeBuoy className="w-4 h-4" aria-hidden />
+            <span>Support</span>
+          </a>
 
-  <ShopMenu />
-</nav>
-
- 
+          <ShopMenu />
+        </nav>
 
         {/* right: cart + hamburger */}
         <div className="relative flex items-center justify-end gap-3 justify-self-end -mr-0 sm:-mr-6">
@@ -489,7 +479,7 @@ function Header() {
                   </button>
                 </div>
 
-                {/* Decorative glow BEHIND and non-interactive */}
+                {/* Decorative glow */}
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-12 -right-12 w-48 h-48 rounded-full blur-3xl -z-10"
@@ -560,8 +550,6 @@ function Header() {
   );
 }
 
-
-/* Icons */
 function IconMenu({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
@@ -630,7 +618,6 @@ function CartDropdown({ open, onClose }: { open: boolean; onClose: () => void })
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 6 }}
         transition={{ duration: 0.18 }}
-        // fixed & high z-index so it appears above the hamburger overlay
         className="fixed top-16 right-3 w-[340px] sm:w-[380px] z-[140]"
         role="dialog"
         aria-modal="true"
@@ -699,7 +686,7 @@ function CartDropdown({ open, onClose }: { open: boolean; onClose: () => void })
           </div>
         </div>
 
-        {/* click-away catcher ABOVE the drawer/backdrop */}
+        {/* click-away catcher */}
         <button
           onClick={onClose}
           className="fixed inset-0 z-[139]"
@@ -711,7 +698,6 @@ function CartDropdown({ open, onClose }: { open: boolean; onClose: () => void })
     document.body
   );
 }
-
 
 /* =============================================================================
    Shop dropdown (desktop) with + buttons
@@ -760,7 +746,7 @@ function ShopMenu() {
             transition={{ duration: 0.18 }}
             onMouseEnter={() => setOpen(true)}
             onMouseLeave={() => setOpen(false)}
-            className="absolute left-1/2 -translate-x-1/2 top-[140%] z-[60] w-[360px] md:w-[420px]"
+            className="absolute left-1/2 -translate-x-1/2 top[140%] z-[60] w-[360px] md:w-[420px]"
             role="menu"
           >
             <div className="rounded-2xl border border-emerald-100 bg-white shadow-2xl p-3">
@@ -988,75 +974,187 @@ function OrganicIntro() {
   );
 }
 
-/* Testimonials */
+/* =====================  TESTIMONIALS (Dynamic - UPDATED)  ===================== */
+type TestimonialDoc = {
+  id: string;
+  name: string;
+  role?: string;
+  text: string;
+  rating?: number;
+  avatarUrl?: string;
+  createdAt?: string | number | null;
+};
+
+function normalizeTestimonial(raw: any): TestimonialDoc {
+  const ratingNum = Number(raw?.rating);
+  return {
+    id: String(raw?.id ?? Math.random().toString(36).slice(2)),
+    name: String(raw?.name ?? raw?.author ?? 'Anonymous'),
+    role: raw?.role ? String(raw.role) : String(raw?.location ?? 'Verified Purchase'),
+    text: String(raw?.text ?? raw?.message ?? ''),
+    rating: Number.isFinite(ratingNum) ? Math.max(1, Math.min(5, ratingNum)) : 5,
+    // Use a local fallback to avoid Next Image remote config issues
+    avatarUrl: typeof raw?.avatarUrl === 'string' && raw.avatarUrl ? raw.avatarUrl : '/avatars/1.jpg',
+    createdAt: raw?.createdAt ?? null,
+  };
+}
+
 function Testimonials() {
-  const items = [
-    { name: 'Nabiso M.', role: 'Verified Purchase', text: 'My scalp finally feels calm and fresh. The detox oil is a lifesaver between wash days!', rating: 5, avatar: '/avatars/1.jpg' },
-    { name: 'Prudence K.', role: 'Verified Purchase', text: 'I saw less breakage in 3 weeks. The hair growth oil leaves my ends so soft.', rating: 5, avatar: '/avatars/2.jpg' },
-    { name: 'Tariro L.', role: 'Verified Purchase', text: 'Lightweight but effective. Love the scent and the shine it gives.', rating: 5, avatar: '/avatars/3.jpg' },
-    { name: 'Ayanda S.', role: 'Repeat Customer', text: 'The only oils that don’t weigh my hair down. Instant scalp relief.', rating: 5, avatar: '/avatars/4.jpg' },
-  ];
+  const [items, setItems] = useState<TestimonialDoc[]>([]);
   const [i, setI] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/testimonials?limit=12', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`GET /api/testimonials → ${res.status}`);
+      const data = await res.json().catch(() => null);
+
+      // Accept either an array or { ok, items }
+      const list: unknown = Array.isArray(data) ? data : data?.items;
+      const arr = Array.isArray(list) ? list : [];
+      const normalized = arr.map(normalizeTestimonial).filter((t) => t.text);
+      setItems(normalized);
+      setI(0);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load testimonials');
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (items.length <= 1) return;
     const id = window.setInterval(() => setI((v) => (v + 1) % items.length), 4500);
     return () => window.clearInterval(id);
   }, [items.length]);
 
+  const stars = (n: number | undefined) => {
+    const v = Math.max(1, Math.min(5, Math.floor(n || 5)));
+    return '★'.repeat(v).padEnd(5, '☆');
+  };
+
+  if (loading) {
+    return (
+      <section className="relative" id="testimonials">
+        <div className="max-w-5xl mx-auto px-4 py-12 md:py-16 text-center">
+          <h2 className="text-2xl md:text-3xl font-bold text-emerald-950">What our customers are saying</h2>
+          <div className="mt-8 h-56 rounded-3xl border border-emerald-200 bg-white animate-pulse" />
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="relative" id='testimonials'>
+    <section className="relative" id="testimonials">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(800px_500px_at_50%_-10%,rgba(16,185,129,0.12),transparent_60%)]" />
       <div className="max-w-5xl mx-auto px-4 py-12 md:py-16 text-center">
-        <h2 className="text-2xl md:text-3xl font-bold text-emerald-950">What our customers are saying</h2>
-        <div className="mt-8 relative">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 14, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -14, scale: 0.98 }}
-              transition={{ duration: 0.35 }}
-              className="relative overflow-hidden rounded-3xl border border-emerald-200 bg-white p-8 shadow-[0_20px_40px_rgba(16,185,129,0.12)]"
-            >
-              <div className="pointer-events-none absolute -top-16 -right-16 h-64 w-64 rounded-full blur-3xl" style={{ background:'linear-gradient(135deg, rgba(16,185,129,0.18), rgba(234,179,8,0.14))' }} />
-              <div className="flex justify-center gap-1 text-amber-500 mb-3">
-                {Array.from({ length: items[i].rating }).map((_, s) => (<span key={s}>★</span>))}
-              </div>
-              <p className="text-lg text-emerald-950">“{items[i].text}”</p>
-              <div className="mt-4 flex items-center justify-center gap-3">
-                <Image src={items[i].avatar} alt="avatar" width={36} height={36} className="w-9 h-9 rounded-full border object-cover" />
-                <div className="text-left">
-                  <div className="text-sm font-medium text-emerald-900">{items[i].name}</div>
-                  <div className="text-xs text-emerald-800/70">{items[i].role}</div>
-                </div>
-                <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Verified</span>
-              </div>
-            </motion.div>
-          </AnimatePresence>
-          <div className="mt-4 flex justify-center gap-2">
-            {items.map((_, idx) => (
-              <button key={idx} onClick={() => setI(idx)} className={`h-2.5 rounded-full transition ${i === idx ? 'w-6 bg-emerald-600' : 'w-2.5 bg-emerald-200'}`} aria-label={`Go to review ${idx + 1}`} />
-            ))}
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-2xl md:text-3xl font-bold text-emerald-950">What our customers are saying</h2>
+          <button
+            onClick={load}
+            className="text-xs px-3 py-1.5 rounded-full border bg-white hover:bg-neutral-50"
+            type="button"
+          >
+            Refresh
+          </button>
+        </div>
+
+        {error && (
+          <div className="mt-4 text-sm text-red-600">
+            {error}
           </div>
-        </div>
-        <div className="mt-10 hidden md:grid grid-cols-3 gap-4">
-          {items.map((r, idx) => (
-            <motion.div key={idx} initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.35, delay: idx * 0.05 }} className="rounded-2xl border border-emerald-200 bg-white p-4 text-left">
-              <div className="flex items-center gap-2">
-                <Image src={r.avatar} alt="avatar" width={32} height={32} className="w-8 h-8 rounded-full border object-cover" />
-                <div className="text-sm font-medium text-emerald-900">{r.name}</div>
-              </div>
-              <p className="mt-2 text-sm text-emerald-900/90">{r.text}</p>
-            </motion.div>
-          ))}
-        </div>
+        )}
+
+        {!error && items.length === 0 && (
+          <p className="mt-4 text-emerald-900/70">No testimonials yet.</p>
+        )}
+
+        {!error && items.length > 0 && (
+          <div className="mt-8 relative">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={items[i]?.id}
+                initial={{ opacity: 0, y: 14, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -14, scale: 0.98 }}
+                transition={{ duration: 0.35 }}
+                className="relative overflow-hidden rounded-3xl border border-emerald-200 bg-white p-8 shadow-[0_20px_40px_rgba(16,185,129,0.12)]"
+              >
+                <div className="flex justify-center gap-1 text-amber-500 mb-3">
+                  <span aria-label={`${items[i].rating ?? 5} out of 5`}>{stars(items[i].rating)}</span>
+                </div>
+                <p className="text-lg text-emerald-950">“{items[i].text}”</p>
+                <div className="mt-4 flex items-center justify-center gap-3">
+                  {/* Use plain <img> to avoid Next Image remote config issues */}
+                  <img
+                    src={items[i].avatarUrl || '/avatars/1.jpg'}
+                    alt={items[i].name}
+                    width={36}
+                    height={36}
+                    className="w-9 h-9 rounded-full border object-cover"
+                  />
+                  <div className="text-left">
+                    <div className="text-sm font-medium text-emerald-900">{items[i].name}</div>
+                    <div className="text-xs text-emerald-800/70">{items[i].role || 'Verified Purchase'}</div>
+                  </div>
+                  <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Verified</span>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+
+            <div className="mt-4 flex justify-center gap-2">
+              {items.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setI(idx)}
+                  className={`h-2.5 rounded-full transition ${i === idx ? 'w-6 bg-emerald-600' : 'w-2.5 bg-emerald-200'}`}
+                  aria-label={`Go to review ${idx + 1}`}
+                />
+              ))}
+            </div>
+
+            {/* Mini grid of 3 more */}
+            <div className="mt-10 hidden md:grid grid-cols-3 gap-4">
+              {items.slice(0, 3).map((r) => (
+                <motion.div
+                  key={r.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.35 }}
+                  className="rounded-2xl border border-emerald-200 bg-white p-4 text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <img
+                      src={r.avatarUrl || '/avatars/1.jpg'}
+                      alt={r.name}
+                      width={32}
+                      height={32}
+                      className="w-8 h-8 rounded-full border object-cover"
+                    />
+                    <div className="text-sm font-medium text-emerald-900">{r.name}</div>
+                  </div>
+                  <p className="mt-2 text-sm text-emerald-900/90">{r.text}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
-/* =============================================================================
-   BLOG SECTION — Single section with Featured + Carousel
-============================================================================= */
+/* =====================  BLOG / JOURNAL (Dynamic)  ===================== */
 type Post = {
   id: string;
   title: string;
@@ -1066,112 +1164,123 @@ type Post = {
   body: string;
   tags?: string[];
 };
-
-const POSTS: Post[] = [
-  {
-    id: 'lesley-alchemist',
-    title: 'Lesley May — The Luxe Roots Alchemist of Delightful Naturals',
-    date: '09 Sep 2025',
-    cover: '/hero/hair-growth-oil-100ml.png',
-    tags: ['Founder', 'Ayurveda', 'Postpartum'],
-    excerpt:
-      'A visionary with a golden dropper in hand, Lesley is the brain behind Mega Potent Hair Growth Oil — a rich Ayurvedic elixir born from tradition, science, and self-care.',
-    body:
-      "A visionary with a golden dropper in hand, Lesley is the brain behind Mega Potent Hair Growth Oil, a rich Ayurvedic elixir born from tradition, science, and self-care. She’s not just selling hair oil — she’s reviving crowns, one root at a time. Passionate about empowering postpartum moms, nurturing natural hair, and bringing thinning edges back to life, her blend of powerhouse oils and potent herbs screams luxury meets purpose.\n\nRooted in elegance, driven by authenticity, and building her empire drop by drop — Lesley is blending beauty with meaning.",
-  },
-  {
-    id: 'welcome-promise',
-    title: 'Welcome to Delightful Naturals — Every Drop is a Promise',
-    date: '09 Sep 2025',
-    cover: '/hero/hair-growth-oil-100ml.png',
-    tags: ['Our Story', 'Ritual', 'Holistic Care'],
-    excerpt:
-      'Created by Lesley May , Mega Potent Hair Growth Oil was born from a personal journey through postpartum shedding, thinning edges, and a passion for holistic care.',
-    body:
-      "Welcome to Delightful Naturals – where every drop is a promise to restore, nourish, and empower.\n\nCreated by Lesley May Mpofu, Mega Potent Hair Growth Oil was born out of a personal journey through postpartum shedding, thinning edges, and a passion for holistic care.\n\nThis handcrafted Ayurvedic blend fuses tradition with luxury — featuring rich oils like castor, flaxseed, jojoba, and herbs like amla, moringa, and hibiscus. It’s designed for women who want results and ritual — a moment of self-care rooted in nature, elegance, and deep restoration.\n\nWhether you're on a journey to regrow, protect, or simply glow — we're here to grow with you.",
-  },
-];
-
+function fmtDate(d?: string | null) {
+  if (!d) return undefined;
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return undefined;
+  return dt.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+}
+function normalizePost(raw: any): Post {
+  return {
+    id: String(raw?.id ?? raw?.slug ?? Math.random().toString(36).slice(2)),
+    title: String(raw?.title ?? ''),
+    date: fmtDate(raw?.publishedAt),
+    cover: raw?.coverUrl || '',
+    excerpt: String(raw?.excerpt ?? ''),
+    body: String(raw?.content ?? ''),
+    tags: Array.isArray(raw?.tags) ? raw.tags.map(String) : [],
+  };
+}
 function BlogSection() {
-  const [openId, setOpenId] = useState<string | null>(null); // controls read-more per-post
-  const featured = POSTS[0];
-  const slides = POSTS.slice(1);
-
-  // simple carousel via scroll-snap + buttons
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const trackRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/journal?limit=6', { cache: 'no-store' });
+        const data = await res.json().catch(() => null);
+        const list: unknown = Array.isArray(data) ? data : data?.items;
+        const arr = Array.isArray(list) ? list : [];
+        const normalized = arr
+          .map(normalizePost)
+          .filter((p) => p.title && (p.excerpt || p.body));
+        setPosts(normalized);
+        setOpenId(null);
+      } catch {
+        setPosts([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
   const scrollByCards = (dir: 1 | -1) => {
     const el = trackRef.current;
     if (!el) return;
-    const w = el.clientWidth;
-    el.scrollBy({ left: dir * (w * 0.9), behavior: 'smooth' });
+    el.scrollBy({ left: dir * (el.clientWidth * 0.9), behavior: 'smooth' });
   };
+
+  if (loading) {
+    return (
+      <section className="relative">
+        <div className="max-w-6xl mx-auto px-4 py-12 md:py-16">
+          <div className="text-center">
+            <h2 className="text-2xl md:text-3xl font-bold text-emerald-950">From the Journal</h2>
+            <p className="mt-2 text-emerald-900/80">Stories, rituals, and science behind stronger roots.</p>
+          </div>
+          <div className="mt-8 grid lg:grid-cols-[1.1fr_1fr] gap-6">
+            <div className="h-72 rounded-3xl border border-emerald-100 bg-white animate-pulse" />
+            <div className="h-72 rounded-3xl border border-emerald-100 bg-white animate-pulse" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!posts.length) {
+    return (
+      <section className="relative">
+        <div className="max-w-6xl mx-auto px-4 py-12 md:py-16">
+          <div className="text-center">
+            <h2 className="text-2xl md:text-3xl font-bold text-emerald-950">From the Journal</h2>
+            <p className="mt-2 text-emerald-900/80">No posts yet.</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const [featured, ...slides] = posts;
 
   return (
     <section className="relative">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            'radial-gradient(700px 500px at 50% -10%, rgba(16,185,129,0.12), transparent 60%)',
-        }}
-      />
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10"
+        style={{ background: 'radial-gradient(700px 500px at 50% -10%, rgba(16,185,129,0.12), transparent 60%)' }} />
       <div className="max-w-6xl mx-auto px-4 py-12 md:py-16">
         <div className="text-center">
           <h2 className="text-2xl md:text-3xl font-bold text-emerald-950">From the Journal</h2>
           <p className="mt-2 text-emerald-900/80">Stories, rituals, and science behind stronger roots.</p>
         </div>
 
-        {/* Featured + Carousel grid (single section) */}
         <div className="mt-8 grid lg:grid-cols-[1.1fr_1fr] gap-6 items-stretch">
-          {/* Featured Post (static card) */}
+          {/* Featured */}
           <article className="relative overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm">
             {featured.cover && (
               <div className="relative h-48 md:h-60">
-                <Image
-                  src={featured.cover}
-                  alt={featured.title}
-                  fill
-                  sizes="(min-width: 1024px) 50vw, 100vw"
-                  className="object-cover"
-                  priority
-                />
+                <Image src={featured.cover} alt={featured.title} fill sizes="(min-width: 1024px) 50vw, 100vw" className="object-cover" priority />
               </div>
             )}
             <div className="p-5 sm:p-6">
               <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-700/70">
-                {featured.date && (
-                  <span className="inline-flex items-center gap-1">
-                    <span>🗓️</span>
-                    {featured.date}
-                  </span>
-                )}
+                {featured.date && <span className="inline-flex items-center gap-1"><span>🗓️</span>{featured.date}</span>}
                 {featured.tags?.map((t) => (
-                  <span key={t} className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50/60 px-2 py-0.5">
-                    #{t}
-                  </span>
+                  <span key={t} className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50/60 px-2 py-0.5">#{t}</span>
                 ))}
               </div>
+
               <h3 className="mt-2 text-lg sm:text-xl font-semibold text-emerald-950">{featured.title}</h3>
 
               <div className="mt-2 text-emerald-900/90 text-sm leading-relaxed">
-                {openId === featured.id ? null : <p>{featured.excerpt}</p>}
+                {openId === featured.id ? null : <p>{featured.excerpt || featured.body.slice(0, 220) + '…'}</p>}
                 <AnimatePresence initial={false}>
                   {openId === featured.id && (
-                    <motion.div
-                      key="feat-body"
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.28 }}
-                      className="overflow-hidden"
-                    >
+                    <motion.div key="feat-body" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.28 }} className="overflow-hidden">
                       <div className="max-w-none">
-                        {featured.body.split('\n').map((para, i) => (
-                          <p key={i} className="my-3">
-                            {para}
-                          </p>
-                        ))}
+                        {(featured.body || '').split('\n').map((para, i) => (<p key={i} className="my-3">{para}</p>))}
                       </div>
                     </motion.div>
                   )}
@@ -1179,12 +1288,8 @@ function BlogSection() {
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setOpenId(openId === featured.id ? null : featured.id)}
-                  aria-expanded={openId === featured.id}
-                  className="relative inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm bg-emerald-600 text-white shadow hover:scale-[1.02] transition"
-                >
+                <button type="button" onClick={() => setOpenId(openId === featured.id ? null : featured.id)} aria-expanded={openId === featured.id}
+                  className="relative inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm bg-emerald-600 text-white shadow hover:scale-[1.02] transition">
                   {openId === featured.id ? 'Read less' : 'Read more'}
                 </button>
                 <Link href="/shop" className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm border border-emerald-200 text-emerald-900 hover:bg-emerald-50 transition">
@@ -1194,69 +1299,35 @@ function BlogSection() {
             </div>
           </article>
 
-          {/* Carousel of the other posts */}
+          {/* Carousel */}
           <div className="relative">
-            {/* gradient edges */}
             <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white to-transparent z-10 rounded-l-3xl" />
             <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white to-transparent z-10 rounded-r-3xl" />
-
-            {/* Track */}
-            <div
-              ref={trackRef}
-              className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-1 px-1 -mx-1"
-            >
+            <div ref={trackRef} className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-1 px-1 -mx-1">
               {slides.map((post) => (
-                <article
-                  key={post.id}
-                  className="min-w-[88%] sm:min-w-[70%] md:min-w-[60%] lg:min-w-[75%] xl:min-w-[65%] snap-start relative overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm"
-                >
+                <article key={post.id}
+                  className="min-w-[88%] sm:min-w-[70%] md:min-w-[60%] lg:min-w-[75%] xl:min-w-[65%] snap-start relative overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm">
                   {post.cover && (
                     <div className="relative h-40 sm:h-48">
-                      <Image
-                        src={post.cover}
-                        alt={post.title}
-                        fill
-                        sizes="(min-width: 640px) 40vw, 90vw"
-                        className="object-cover"
-                      />
+                      <Image src={post.cover} alt={post.title} fill sizes="(min-width: 640px) 40vw, 90vw" className="object-cover" />
                     </div>
                   )}
                   <div className="p-5 sm:p-6">
                     <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-700/70">
-                      {post.date && (
-                        <span className="inline-flex items-center gap-1">
-                          <span>🗓️</span>
-                          {post.date}
-                        </span>
-                      )}
+                      {post.date && <span className="inline-flex items-center gap-1"><span>🗓️</span>{post.date}</span>}
                       {post.tags?.map((t) => (
-                        <span key={t} className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50/60 px-2 py-0.5">
-                          #{t}
-                        </span>
+                        <span key={t} className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50/60 px-2 py-0.5">#{t}</span>
                       ))}
                     </div>
-                    <h3 className="mt-2 text-base sm:text-lg font-semibold text-emerald-950">
-                      {post.title}
-                    </h3>
+                    <h3 className="mt-2 text-base sm:text-lg font-semibold text-emerald-950">{post.title}</h3>
 
                     <div className="mt-2 text-emerald-900/90 text-sm leading-relaxed">
-                      {openId === post.id ? null : <p>{post.excerpt}</p>}
+                      {openId === post.id ? null : <p>{post.excerpt || post.body.slice(0, 180) + '…'}</p>}
                       <AnimatePresence initial={false}>
                         {openId === post.id && (
-                          <motion.div
-                            key={`${post.id}-body`}
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.28 }}
-                            className="overflow-hidden"
-                          >
+                          <motion.div key={`${post.id}-body`} initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.28 }} className="overflow-hidden">
                             <div className="max-w-none">
-                              {post.body.split('\n').map((para, i) => (
-                                <p key={i} className="my-3">
-                                  {para}
-                                </p>
-                              ))}
+                              {(post.body || '').split('\n').map((para, i) => (<p key={i} className="my-3">{para}</p>))}
                             </div>
                           </motion.div>
                         )}
@@ -1264,12 +1335,8 @@ function BlogSection() {
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setOpenId(openId === post.id ? null : post.id)}
-                        aria-expanded={openId === post.id}
-                        className="relative inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm bg-emerald-600 text-white shadow hover:scale-[1.02] transition"
-                      >
+                      <button type="button" onClick={() => setOpenId(openId === post.id ? null : post.id)} aria-expanded={openId === post.id}
+                        className="relative inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm bg-emerald-600 text-white shadow hover:scale-[1.02] transition">
                         {openId === post.id ? 'Read less' : 'Read more'}
                       </button>
                       <Link href="/shop" className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm border border-emerald-200 text-emerald-900 hover:bg-emerald-50 transition">
@@ -1281,25 +1348,12 @@ function BlogSection() {
               ))}
             </div>
 
-            {/* arrows */}
             {slides.length > 0 && (
               <div className="mt-3 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  aria-label="Previous"
-                  onClick={() => scrollByCards(-1)}
-                  className="inline-grid place-items-center w-9 h-9 rounded-full border bg-white hover:bg-emerald-50"
-                >
-                  ‹
-                </button>
-                <button
-                  type="button"
-                  aria-label="Next"
-                  onClick={() => scrollByCards(1)}
-                  className="inline-grid place-items-center w-9 h-9 rounded-full border bg-white hover:bg-emerald-50"
-                >
-                  ›
-                </button>
+                <button type="button" aria-label="Previous" onClick={() => scrollByCards(-1)}
+                  className="inline-grid place-items-center w-9 h-9 rounded-full border bg-white hover:bg-emerald-50">‹</button>
+                <button type="button" aria-label="Next" onClick={() => scrollByCards(1)}
+                  className="inline-grid place-items-center w-9 h-9 rounded-full border bg-white hover:bg-emerald-50">›</button>
               </div>
             )}
           </div>
@@ -1327,7 +1381,7 @@ function FAQSection() {
           <p className="mt-2 text-emerald-900/80">Quick answers to common questions.</p>
         </div>
         <div className="relative">
-          <div className="absolute -inset-1 rounded-[26px] bg-gradient-to-br from-emerald-200/40 to-amber-200/40 blur-xl -z-10" aria-hidden />
+          <div className="absolute -inset-1 rounded[26px] bg-gradient-to-br from-emerald-200/40 to-amber-200/40 blur-xl -z-10" aria-hidden />
           <div className="rounded-[22px] border border-emerald-200 bg-white shadow-sm divide-y">
             {faqs.map((item, idx) => (<FAQItem key={idx} q={item.q} a={item.a} defaultOpen={idx === 0} />))}
           </div>
@@ -1368,38 +1422,37 @@ function ContactSection() {
       setForm((f) => ({ ...f, [key]: e.target.value }));
     };
 
-   const onSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError(null);
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
 
-  if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
-    setError('Please fill in your name, email, and message.');
-    return;
-  }
-  if (form.honey) return; // honeypot
-
-  setSubmitting(true);
-  try {
-    const res = await fetch('/api/contact', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    });
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data?.error || 'Something went wrong.');
+    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
+      setError('Please fill in your name, email, and message.');
+      return;
     }
+    if (form.honey) return; // honeypot
 
-    setSent(true);
-  } catch (err) {
-    if (err instanceof Error) setError(err.message);
-    else setError('An unexpected error occurred.');
-  } finally {
-    setSubmitting(false);
-  }
-};
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
 
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'Something went wrong.');
+      }
+
+      setSent(true);
+    } catch (err) {
+      if (err instanceof Error) setError(err.message);
+      else setError('An unexpected error occurred.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <section id="contact" className="relative">
