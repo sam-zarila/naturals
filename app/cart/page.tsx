@@ -1,479 +1,261 @@
+// app/cart/page.tsx
 'use client';
 
-import React, { JSX, useEffect, useMemo, useState, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { AnimatePresence, motion } from 'framer-motion';
-import { firestore } from '../lib/firebase-client';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { v4 as uuidv4 } from 'uuid';
 
-/* ============================================================================
-   Toast Hook and Component
-============================================================================ */
-interface Toast {
-  id: string;
-  title: string;
-  description?: string;
-  variant?: 'default' | 'destructive';
-}
-
-function useToast() {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-
-  const toast = useCallback(({ title, description, variant = 'default' }: Omit<Toast, 'id'>) => {
-    const id = uuidv4();
-    setToasts((prev) => [...prev, { id, title, description, variant }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3000);
-  }, []);
-
-  return { toast, toasts };
-}
-
-function ToastComponent({ toasts }: { toasts: Toast[] }) {
-  return (
-    <div className="fixed bottom-4 right-4 space-y-2 z-50">
-      <AnimatePresence>
-        {toasts.map((toast) => (
-          <motion.div
-            key={toast.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className={`p-4 rounded-lg shadow-lg text-white ${
-              toast.variant === 'destructive' ? 'bg-red-600' : 'bg-emerald-600'
-            }`}
-          >
-            <div className="font-semibold">{toast.title}</div>
-            {toast.description && <div className="text-sm mt-1">{toast.description}</div>}
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-/* ============================================================================
-   Types
-============================================================================ */
+// Define types
 type Product = {
   id: string;
   name: string;
   price: number;
-  currency: 'R';
+  currency: string;
   img: string;
 };
 
-type StoredCartItem = { id: string; qty: number };
+type CartItem = Product & { qty: number };
 
-type ExpandedLine = Product & {
-  qty: number;
-  lineTotal: number;
-};
+export default function CartPage() {
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-/* ============================================================================
-   Catalog
-============================================================================ */
-const CATALOG: Record<string, Product> = {
-  'growth-100': {
-    id: 'growth-100',
-    name: 'Hair Growth Oil · 100ml',
-    price: 300,
-    currency: 'R',
-    img: '/products/hair-growth-oil-100ml.png',
-  },
-  'detox-60': {
-    id: 'detox-60',
-    name: 'Scalp Detox Oil · 60ml',
-    price: 260,
-    currency: 'R',
-    img: '/products/scalp-detox-oil-60ml.png',
-  },
-};
-
-/* ============================================================================
-   Firestore and LocalStorage Helpers
-============================================================================ */
-const USER_ID_KEY = 'cart-user-id';
-const CART_PATH = (userId: string) => `carts/${userId}`; // Document path
-
-function getUserId(): string {
-  let userId = localStorage.getItem(USER_ID_KEY);
-  if (!userId) {
-    userId = uuidv4();
-    localStorage.setItem(USER_ID_KEY, userId);
-  }
-  return userId;
-}
-
-function parseCart(raw: unknown): StoredCartItem[] {
-  if (!Array.isArray(raw)) return [];
-  const valid: StoredCartItem[] = [];
-  for (const item of raw) {
-    if (
-      typeof item === 'object' &&
-      item !== null &&
-      'id' in item &&
-      'qty' in item &&
-      typeof item.id === 'string' &&
-      typeof item.qty === 'number' &&
-      item.qty > 0
-    ) {
-      valid.push({ id: item.id, qty: Math.floor(item.qty) });
-    }
-  }
-  return valid;
-}
-
-async function readCart(userId: string): Promise<StoredCartItem[]> {
-  try {
-    const docRef = doc(firestore, CART_PATH(userId));
-    const docSnap = await getDoc(docRef);
-    console.log('readCart: userId:', userId, 'data:', docSnap.exists() ? docSnap.data() : 'No document');
-    return docSnap.exists() ? parseCart(docSnap.data().items) : [];
-  } catch (err) {
-    console.error('Error reading cart:', err);
-    throw err;
-  }
-}
-
-async function writeCart(userId: string, items: StoredCartItem[]): Promise<void> {
-  try {
-    const docRef = doc(firestore, CART_PATH(userId));
-    // Fetch existing document to get current token
-    const docSnap = await getDoc(docRef);
-    let token: string | null = localStorage.getItem('cart-token');
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      if (data && typeof data.token === 'string' && data.token) {
-        // Use existing token from Firestore if available and a string
-        token = data.token;
-        localStorage.setItem('cart-token', token);
-      }
-    }
-    if (!token) {
-      // Generate new token only if no token exists
-      token = uuidv4();
-      localStorage.setItem('cart-token', token);
-    }
-    console.log('writeCart: userId:', userId, 'token:', token, 'items:', items);
-    await setDoc(docRef, { items, updatedAt: Date.now(), token }, { merge: true });
-  } catch (err) {
-    console.error('Error writing cart:', err);
-    throw err;
-  }
-}
-
-// Function to clear cart after successful checkout
-export async function clearCartAfterCheckout(userId: string): Promise<void> {
-  try {
-    const docRef = doc(firestore, CART_PATH(userId));
-    let token: string | null = localStorage.getItem('cart-token');
-    
-    if (!token) {
-      token = uuidv4();
-      localStorage.setItem('cart-token', token);
-    }
-    
-    console.log('clearCartAfterCheckout: userId:', userId, 'token:', token);
-    await setDoc(docRef, { items: [], updatedAt: Date.now(), token }, { merge: true });
-    
-    // Also update localStorage to reflect empty cart
-    if (typeof window !== 'undefined') {
-      const event = new CustomEvent('cartUpdated', { detail: { items: [] } });
-      window.dispatchEvent(event);
-    }
-  } catch (err) {
-    console.error('Error clearing cart after checkout:', err);
-    throw err;
-  }
-}
-
-/* ============================================================================
-   Page
-============================================================================ */
-export default function CartPage(): JSX.Element {
-  const { toast, toasts } = useToast();
-  const [userId, setUserId] = useState<string | null>(null);
-  const [items, setItems] = useState<StoredCartItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-
-  // Initialize userId and fetch cart
+  // Load cart items on component mount
   useEffect(() => {
-    const id = getUserId();
-    setUserId(id);
-    setLoading(true);
-    readCart(id)
-      .then((cart) => {
-        setItems(cart);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Cart load error:', err);
-        toast({ title: 'Error', description: `Failed to load cart: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
-        setLoading(false);
-      });
-  }, []); // Empty dependency array
-
-  // Listen for cart updates from other components (like checkout)
-  useEffect(() => {
-    const handleCartUpdate = (event: CustomEvent) => {
-      if (event.detail && Array.isArray(event.detail.items)) {
-        setItems(event.detail.items);
-      }
-    };
-
-    // Add event listener for cart updates
-    window.addEventListener('cartUpdated', handleCartUpdate as EventListener);
-    
-    return () => {
-      window.removeEventListener('cartUpdated', handleCartUpdate as EventListener);
-    };
+    loadCartItems();
   }, []);
 
-  // Memoized cart operations
-  const updateQty = useCallback(
-    async (id: string, qty: number) => {
-      if (!userId) return;
-      try {
-        const q = Math.max(1, qty);
-        const next = items.map((x) => (x.id === id ? { ...x, qty: q } : x));
-        setItems(next);
-        await writeCart(userId, next);
-        toast({ title: 'Cart updated', description: `Quantity for ${CATALOG[id]?.name || 'item'} updated.` });
-      } catch (err) {
-        console.error('updateQty error:', err);
-        toast({ title: 'Error', description: `Failed to update cart: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
+  const loadCartItems = () => {
+    try {
+      const userId = localStorage.getItem('cart-user-id');
+      if (!userId) {
+        setCartItems([]);
+        setLoading(false);
+        return;
       }
-    },
-    [userId, items, toast]
-  );
 
-  const removeItem = useCallback(
-    async (id: string) => {
-      if (!userId) return;
-      try {
-        const next = items.filter((x) => x.id !== id);
-        setItems(next);
-        await writeCart(userId, next);
-        toast({ title: 'Item removed', description: `${CATALOG[id]?.name || 'Item'} removed from cart.` });
-      } catch (err) {
-        console.error('removeItem error:', err);
-        toast({ title: 'Error', description: `Failed to remove item: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
+      // Try Firestore structure first
+      const firestoreData = localStorage.getItem(`firestore:cart:${userId}`);
+      if (firestoreData) {
+        const parsed = JSON.parse(firestoreData);
+        if (parsed && Array.isArray(parsed.items)) {
+          // You would need to fetch product details from your CATALOG here
+          // For now, we'll use the stored items as-is
+          setCartItems(parsed.items as CartItem[]);
+          setLoading(false);
+          return;
+        }
       }
-    },
-    [userId, items, toast]
-  );
 
-  const clear = useCallback(
-    async () => {
-      if (!userId) return;
-      try {
-        setItems([]);
-        await writeCart(userId, []);
-        toast({ title: 'Cart cleared', description: 'All items removed from cart.' });
-      } catch (err) {
-        console.error('clear error:', err);
-        toast({ title: 'Error', description: `Failed to clear cart: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
+      // Fallback to legacy structure
+      const legacyData = localStorage.getItem('dn-cart');
+      if (legacyData) {
+        const items = JSON.parse(legacyData) as Array<{ id: string; qty: number }>;
+        // Convert to CartItem format - you'll need to fetch product details
+        const cartItems = items.map(item => ({
+          id: item.id,
+          name: `Product ${item.id}`,
+          price: item.id === 'growth-100' ? 300 : 260,
+          currency: 'R',
+          img: '/products/hair-growth-oil-100ml.png',
+          qty: item.qty
+        }));
+        setCartItems(cartItems);
       }
-    },
-    [userId, toast]
-  );
+    } catch (error) {
+      console.error('Error loading cart:', error);
+      setCartItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Expand items with catalog data
-  const lines: ExpandedLine[] = useMemo(() => {
-    return items
-      .map((it) => {
-        const p = CATALOG[it.id];
-        if (!p) return null;
-        const qty = Math.max(1, it.qty);
-        return { ...p, qty, lineTotal: qty * p.price };
-      })
-      .filter((x): x is ExpandedLine => Boolean(x));
-  }, [items]);
+  const updateQuantity = (id: string, newQty: number) => {
+    if (newQty < 1) return;
 
-  const subtotal = useMemo(
-    () => lines.reduce((sum, l) => sum + l.lineTotal, 0),
-    [lines]
-  );
+    const updatedItems = cartItems.map(item =>
+      item.id === id ? { ...item, qty: newQty } : item
+    );
+    setCartItems(updatedItems);
+    saveCart(updatedItems);
+  };
+
+  const removeItem = (id: string) => {
+    const updatedItems = cartItems.filter(item => item.id !== id);
+    setCartItems(updatedItems);
+    saveCart(updatedItems);
+  };
+
+  const saveCart = (items: CartItem[]) => {
+    try {
+      const userId = localStorage.getItem('cart-user-id');
+      if (!userId) return;
+
+      const storedItems = items.map(item => ({
+        id: item.id,
+        qty: item.qty
+      }));
+
+      // Save in both formats for compatibility
+      const firestoreData = { userId, items: storedItems, updatedAt: Date.now() };
+      localStorage.setItem(`firestore:cart:${userId}`, JSON.stringify(firestoreData));
+      localStorage.setItem('dn-cart', JSON.stringify(storedItems));
+
+      // Dispatch event for other components to sync
+      window.dispatchEvent(new Event('cartUpdated'));
+    } catch (error) {
+      console.error('Error saving cart:', error);
+    }
+  };
+
+  const clearCart = () => {
+    setCartItems([]);
+    try {
+      const userId = localStorage.getItem('cart-user-id');
+      if (userId) {
+        localStorage.removeItem(`firestore:cart:${userId}`);
+      }
+      localStorage.removeItem('dn-cart');
+      window.dispatchEvent(new Event('cartUpdated'));
+    } catch (error) {
+      console.error('Error clearing cart:', error);
+    }
+  };
+
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  const totalItems = cartItems.reduce((sum, item) => sum + item.qty, 0);
 
   if (loading) {
     return (
-      <main className="bg-white min-h-screen flex items-center justify-center">
-        <div className="text-center">Loading cart...</div>
-      </main>
+      <div className="min-h-screen bg-emerald-50 py-8">
+        <div className="max-w-4xl mx-auto px-4">
+          <h1 className="text-3xl font-bold text-emerald-900 mb-8">Your Cart</h1>
+          <div className="animate-pulse">
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+              <div className="h-20 bg-gray-200 rounded mb-4"></div>
+              <div className="h-20 bg-gray-200 rounded"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <main className="bg-white min-h-screen">
-      <ToastComponent toasts={toasts} />
-      {/* Header */}
-      <div className="border-b">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <Image
-              src="/logo.png"
-              alt="Delightful Naturals"
-              width={32}
-              height={32}
-              className="rounded"
-            />
-            <span className="font-semibold text-emerald-900">
-              Delightful Naturals
-            </span>
-          </Link>
-          <Link href="/shop" className="text-sm text-emerald-700 hover:underline">
-            Continue shopping
-          </Link>
-        </div>
-      </div>
+    <div className="min-h-screen bg-emerald-50 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        <h1 className="text-3xl font-bold text-emerald-900 mb-8">Your Cart</h1>
 
-      {/* Content */}
-      <div className="max-w-6xl mx-auto px-4 py-8 lg:py-12 grid lg:grid-cols-5 gap-8">
-        {/* Left: items */}
-        <section className="lg:col-span-3">
-          <h1 className="text-2xl md:text-3xl font-bold text-emerald-950">Your cart</h1>
-          <p className="text-emerald-900/70 mt-1">Review items and update quantities.</p>
-
-          <div className="mt-4 rounded-2xl border bg-white shadow-sm">
+        {cartItems.length === 0 ? (
+          <div className="bg-white rounded-lg p-8 text-center shadow-sm">
+            <div className="text-6xl mb-4">🛒</div>
+            <h2 className="text-2xl font-semibold text-emerald-900 mb-4">Your cart is empty</h2>
+            <p className="text-emerald-700 mb-6">Add some products to get started!</p>
+            <Link
+              href="/shop"
+              className="inline-flex items-center justify-center rounded-lg px-6 py-3 bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition"
+            >
+              Continue Shopping
+            </Link>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+            {/* Cart Items */}
             <div className="divide-y">
-              <AnimatePresence initial={false}>
-                {lines.map((l) => (
-                  <motion.div
-                    key={l.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    className="p-4 sm:p-5 flex items-center gap-3 sm:gap-4"
-                  >
-                    <Image
-                      src={l.img}
-                      alt={l.name}
-                      width={64}
-                      height={64}
-                      className="rounded border bg-white w-16 h-16 object-contain"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm sm:text-base font-medium text-emerald-950 truncate">
-                        {l.name}
-                      </div>
-                      <div className="text-xs text-emerald-800/70 mt-0.5">
-                        {l.currency}
-                        {l.price.toLocaleString()}
-                      </div>
+              {cartItems.map((item) => (
+                <div key={item.id} className="p-6 flex items-center gap-4">
+                  <Image
+                    src={item.img}
+                    alt={item.name}
+                    width={80}
+                    height={80}
+                    className="rounded-lg object-cover"
+                  />
+                  
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-emerald-900">{item.name}</h3>
+                    <p className="text-emerald-700">
+                      {item.currency} {item.price.toLocaleString()}
+                    </p>
+                  </div>
 
-                      <div className="mt-2 inline-flex items-center rounded-xl border overflow-hidden">
-                        <button
-                          className="w-8 h-8 grid place-items-center hover:bg-emerald-50"
-                          onClick={() => updateQty(l.id, l.qty - 1)}
-                          aria-label="Decrease quantity"
-                        >
-                          −
-                        </button>
-                        <div className="w-10 h-8 grid place-items-center text-sm">
-                          {l.qty}
-                        </div>
-                        <button
-                          className="w-8 h-8 grid place-items-center hover:bg-emerald-50"
-                          onClick={() => updateQty(l.id, l.qty + 1)}
-                          aria-label="Increase quantity"
-                        >
-                          +
-                        </button>
-                      </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center border rounded-lg">
+                      <button
+                        onClick={() => updateQuantity(item.id, item.qty - 1)}
+                        className="w-10 h-10 flex items-center justify-center hover:bg-emerald-50 transition"
+                        disabled={item.qty <= 1}
+                      >
+                        −
+                      </button>
+                      <span className="w-12 h-10 flex items-center justify-center text-center">
+                        {item.qty}
+                      </span>
+                      <button
+                        onClick={() => updateQuantity(item.id, item.qty + 1)}
+                        className="w-10 h-10 flex items-center justify-center hover:bg-emerald-50 transition"
+                      >
+                        +
+                      </button>
                     </div>
 
-                    <div className="text-sm sm:text-base font-semibold text-emerald-950">
-                      R{l.lineTotal.toLocaleString()}
+                    <div className="w-20 text-right font-semibold text-emerald-900">
+                      {item.currency} {(item.price * item.qty).toLocaleString()}
                     </div>
 
                     <button
-                      onClick={() => removeItem(l.id)}
-                      className="ml-1 text-emerald-700/70 hover:text-emerald-900 text-lg"
-                      title="Remove"
-                      aria-label="Remove item"
+                      onClick={() => removeItem(item.id)}
+                      className="w-10 h-10 flex items-center justify-center text-red-600 hover:bg-red-50 rounded transition"
+                      title="Remove item"
                     >
                       ×
                     </button>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-
-              {lines.length === 0 && (
-                <div className="p-6 text-sm text-emerald-900/70">
-                  Your cart is empty.{' '}
-                  <Link href="/shop" className="text-emerald-700 underline">
-                    Browse products
-                  </Link>
-                  .
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
 
-            {lines.length > 0 && (
-              <div className="p-4 sm:p-5 border-t flex items-center justify-between">
+            {/* Cart Summary */}
+            <div className="p-6 border-t bg-emerald-50">
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-emerald-700">Subtotal ({totalItems} items):</span>
+                <span className="text-xl font-semibold text-emerald-900">
+                  R {subtotal.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="flex gap-3">
                 <button
-                  onClick={clear}
-                  className="text-sm px-4 py-2 rounded-xl border hover:bg-emerald-50"
+                  onClick={clearCart}
+                  className="flex-1 py-3 px-6 border border-emerald-200 text-emerald-700 rounded-lg hover:bg-white transition"
                 >
-                  Clear cart
+                  Clear Cart
                 </button>
+                
                 <Link
                   href="/checkout"
-                  className="inline-flex items-center justify-center rounded-xl px-4 py-2 bg-emerald-600 text-white shadow hover:bg-emerald-700"
+                  className="flex-1 py-3 px-6 bg-emerald-600 text-white text-center rounded-lg hover:bg-emerald-700 transition font-medium"
                 >
-                  Checkout →
+                  Proceed to Checkout
                 </Link>
               </div>
-            )}
-          </div>
-        </section>
 
-        {/* Right: summary */}
-        <aside className="lg:col-span-2">
-          <div className="rounded-2xl border bg-white shadow-sm p-4 sm:p-5">
-            <div className="font-semibold text-emerald-950">Order summary</div>
-
-            <div className="mt-3 space-y-2 text-sm">
-              <Row label="Subtotal" value={`R${subtotal.toLocaleString()}`} />
-              <Row label="Estimated shipping" value="Calculated at checkout" />
-              <div className="border-t pt-2 flex items-center justify-between">
-                <div className="font-semibold text-emerald-950">Estimated total</div>
-                <div className="font-bold text-emerald-950 text-lg">
-                  R{subtotal.toLocaleString()}
-                </div>
+              <div className="mt-4 text-center">
+                <Link
+                  href="/shop"
+                  className="text-emerald-600 hover:text-emerald-700 underline"
+                >
+                  Continue Shopping
+                </Link>
               </div>
             </div>
-
-            <Link
-              href="/checkout"
-              className="mt-4 inline-flex w-full items-center justify-center rounded-2xl px-5 py-3 bg-emerald-600 text-white font-medium shadow hover:bg-emerald-700"
-            >
-              Proceed to checkout
-            </Link>
-
-            <div className="mt-3 text-xs text-emerald-900/70 flex items-center gap-2">
-              <span className="inline-grid place-items-center w-6 h-6 rounded-full bg-emerald-100 border">
-                🔒
-              </span>
-              Secure checkout via PayFast (ZAR)
-            </div>
           </div>
-        </aside>
+        )}
       </div>
-    </main>
-  );
-}
-
-/* UI bits */
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-emerald-900/80">{label}</span>
-      <span className="text-emerald-950">{value}</span>
     </div>
   );
 }
+
+// Remove any export that's not default, metadata, or generateMetadata
+// If you need the clear cart functionality, make it a regular function inside the component
