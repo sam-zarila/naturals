@@ -1,9 +1,59 @@
 'use client';
 
-import React, { JSX, useEffect, useMemo, useState } from 'react';
+import React, { JSX, useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
+import { firestore } from '../lib/firebase-client';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { v4 as uuidv4 } from 'uuid';
+
+/* ============================================================================
+   Toast Hook and Component
+============================================================================ */
+interface Toast {
+  id: string;
+  title: string;
+  description?: string;
+  variant?: 'default' | 'destructive';
+}
+
+function useToast() {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const toast = useCallback(({ title, description, variant = 'default' }: Omit<Toast, 'id'>) => {
+    const id = uuidv4();
+    setToasts((prev) => [...prev, { id, title, description, variant }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3000);
+  }, []);
+
+  return { toast, toasts };
+}
+
+function ToastComponent({ toasts }: { toasts: Toast[] }) {
+  return (
+    <div className="fixed bottom-4 right-4 space-y-2 z-50">
+      <AnimatePresence>
+        {toasts.map((toast) => (
+          <motion.div
+            key={toast.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className={`p-4 rounded-lg shadow-lg text-white ${
+              toast.variant === 'destructive' ? 'bg-red-600' : 'bg-emerald-600'
+            }`}
+          >
+            <div className="font-semibold">{toast.title}</div>
+            {toast.description && <div className="text-sm mt-1">{toast.description}</div>}
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 /* ============================================================================
    Types
@@ -11,7 +61,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 type Product = {
   id: string;
   name: string;
-  price: number; // in ZAR cents or rands? (Using rands here to match your catalog)
+  price: number;
   currency: 'R';
   img: string;
 };
@@ -24,7 +74,7 @@ type ExpandedLine = Product & {
 };
 
 /* ============================================================================
-   Catalog (mirror your product ids)
+   Catalog
 ============================================================================ */
 const CATALOG: Record<string, Product> = {
   'growth-100': {
@@ -44,45 +94,100 @@ const CATALOG: Record<string, Product> = {
 };
 
 /* ============================================================================
-   LocalStorage helpers (fully typed, no any)
+   Firestore and LocalStorage Helpers
 ============================================================================ */
-const CART_KEY = 'dn-cart';
+const USER_ID_KEY = 'cart-user-id';
+const CART_PATH = (userId: string) => `carts/${userId}`; // Document path
 
-function isStoredCartItem(x: unknown): x is StoredCartItem {
-  return (
-    typeof x === 'object' &&
-    x !== null &&
-    'id' in x &&
-    'qty' in x &&
-    typeof (x as { id: unknown }).id === 'string' &&
-    typeof (x as { qty: unknown }).qty === 'number'
-  );
+function getUserId(): string {
+  let userId = localStorage.getItem(USER_ID_KEY);
+  if (!userId) {
+    userId = uuidv4();
+    localStorage.setItem(USER_ID_KEY, userId);
+  }
+  return userId;
 }
 
 function parseCart(raw: unknown): StoredCartItem[] {
   if (!Array.isArray(raw)) return [];
   const valid: StoredCartItem[] = [];
   for (const item of raw) {
-    if (isStoredCartItem(item) && item.qty > 0) valid.push(item);
+    if (
+      typeof item === 'object' &&
+      item !== null &&
+      'id' in item &&
+      'qty' in item &&
+      typeof item.id === 'string' &&
+      typeof item.qty === 'number' &&
+      item.qty > 0
+    ) {
+      valid.push({ id: item.id, qty: Math.floor(item.qty) });
+    }
   }
   return valid;
 }
 
-function readCart(): StoredCartItem[] {
+async function readCart(userId: string): Promise<StoredCartItem[]> {
   try {
-    const raw = localStorage.getItem(CART_KEY);
-    if (!raw) return [];
-    return parseCart(JSON.parse(raw));
-  } catch {
-    return [];
+    const docRef = doc(firestore, CART_PATH(userId));
+    const docSnap = await getDoc(docRef);
+    console.log('readCart: userId:', userId, 'data:', docSnap.exists() ? docSnap.data() : 'No document');
+    return docSnap.exists() ? parseCart(docSnap.data().items) : [];
+  } catch (err) {
+    console.error('Error reading cart:', err);
+    throw err;
   }
 }
 
-function writeCart(next: StoredCartItem[]): void {
+async function writeCart(userId: string, items: StoredCartItem[]): Promise<void> {
   try {
-    localStorage.setItem(CART_KEY, JSON.stringify(next));
-  } catch {
-    // ignore write failures
+    const docRef = doc(firestore, CART_PATH(userId));
+    // Fetch existing document to get current token
+    const docSnap = await getDoc(docRef);
+    let token: string | null = localStorage.getItem('cart-token');
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      if (data && typeof data.token === 'string' && data.token) {
+        // Use existing token from Firestore if available and a string
+        token = data.token;
+        localStorage.setItem('cart-token', token);
+      }
+    }
+    if (!token) {
+      // Generate new token only if no token exists
+      token = uuidv4();
+      localStorage.setItem('cart-token', token);
+    }
+    console.log('writeCart: userId:', userId, 'token:', token, 'items:', items);
+    await setDoc(docRef, { items, updatedAt: Date.now(), token }, { merge: true });
+  } catch (err) {
+    console.error('Error writing cart:', err);
+    throw err;
+  }
+}
+
+// Function to clear cart after successful checkout
+export async function clearCartAfterCheckout(userId: string): Promise<void> {
+  try {
+    const docRef = doc(firestore, CART_PATH(userId));
+    let token: string | null = localStorage.getItem('cart-token');
+    
+    if (!token) {
+      token = uuidv4();
+      localStorage.setItem('cart-token', token);
+    }
+    
+    console.log('clearCartAfterCheckout: userId:', userId, 'token:', token);
+    await setDoc(docRef, { items: [], updatedAt: Date.now(), token }, { merge: true });
+    
+    // Also update localStorage to reflect empty cart
+    if (typeof window !== 'undefined') {
+      const event = new CustomEvent('cartUpdated', { detail: { items: [] } });
+      window.dispatchEvent(event);
+    }
+  } catch (err) {
+    console.error('Error clearing cart after checkout:', err);
+    throw err;
   }
 }
 
@@ -90,13 +195,92 @@ function writeCart(next: StoredCartItem[]): void {
    Page
 ============================================================================ */
 export default function CartPage(): JSX.Element {
+  const { toast, toasts } = useToast();
+  const [userId, setUserId] = useState<string | null>(null);
   const [items, setItems] = useState<StoredCartItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Initialize userId and fetch cart
   useEffect(() => {
-    setItems(readCart());
-    setLoading(false);
+    const id = getUserId();
+    setUserId(id);
+    setLoading(true);
+    readCart(id)
+      .then((cart) => {
+        setItems(cart);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Cart load error:', err);
+        toast({ title: 'Error', description: `Failed to load cart: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
+        setLoading(false);
+      });
+  }, []); // Empty dependency array
+
+  // Listen for cart updates from other components (like checkout)
+  useEffect(() => {
+    const handleCartUpdate = (event: CustomEvent) => {
+      if (event.detail && Array.isArray(event.detail.items)) {
+        setItems(event.detail.items);
+      }
+    };
+
+    // Add event listener for cart updates
+    window.addEventListener('cartUpdated', handleCartUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('cartUpdated', handleCartUpdate as EventListener);
+    };
   }, []);
+
+  // Memoized cart operations
+  const updateQty = useCallback(
+    async (id: string, qty: number) => {
+      if (!userId) return;
+      try {
+        const q = Math.max(1, qty);
+        const next = items.map((x) => (x.id === id ? { ...x, qty: q } : x));
+        setItems(next);
+        await writeCart(userId, next);
+        toast({ title: 'Cart updated', description: `Quantity for ${CATALOG[id]?.name || 'item'} updated.` });
+      } catch (err) {
+        console.error('updateQty error:', err);
+        toast({ title: 'Error', description: `Failed to update cart: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
+      }
+    },
+    [userId, items, toast]
+  );
+
+  const removeItem = useCallback(
+    async (id: string) => {
+      if (!userId) return;
+      try {
+        const next = items.filter((x) => x.id !== id);
+        setItems(next);
+        await writeCart(userId, next);
+        toast({ title: 'Item removed', description: `${CATALOG[id]?.name || 'Item'} removed from cart.` });
+      } catch (err) {
+        console.error('removeItem error:', err);
+        toast({ title: 'Error', description: `Failed to remove item: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
+      }
+    },
+    [userId, items, toast]
+  );
+
+  const clear = useCallback(
+    async () => {
+      if (!userId) return;
+      try {
+        setItems([]);
+        await writeCart(userId, []);
+        toast({ title: 'Cart cleared', description: 'All items removed from cart.' });
+      } catch (err) {
+        console.error('clear error:', err);
+        toast({ title: 'Error', description: `Failed to clear cart: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
+      }
+    },
+    [userId, toast]
+  );
 
   // Expand items with catalog data
   const lines: ExpandedLine[] = useMemo(() => {
@@ -112,29 +296,20 @@ export default function CartPage(): JSX.Element {
 
   const subtotal = useMemo(
     () => lines.reduce((sum, l) => sum + l.lineTotal, 0),
-    [lines],
+    [lines]
   );
 
-  const updateQty = (id: string, qty: number) => {
-    const q = Math.max(1, qty);
-    const next = items.map((x) => (x.id === id ? { ...x, qty: q } : x));
-    setItems(next);
-    writeCart(next);
-  };
-
-  const removeItem = (id: string) => {
-    const next = items.filter((x) => x.id !== id);
-    setItems(next);
-    writeCart(next);
-  };
-
-  const clear = () => {
-    setItems([]);
-    writeCart([]);
-  };
+  if (loading) {
+    return (
+      <main className="bg-white min-h-screen flex items-center justify-center">
+        <div className="text-center">Loading cart...</div>
+      </main>
+    );
+  }
 
   return (
     <main className="bg-white min-h-screen">
+      <ToastComponent toasts={toasts} />
       {/* Header */}
       <div className="border-b">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -227,7 +402,7 @@ export default function CartPage(): JSX.Element {
                 ))}
               </AnimatePresence>
 
-              {lines.length === 0 && !loading && (
+              {lines.length === 0 && (
                 <div className="p-6 text-sm text-emerald-900/70">
                   Your cart is empty.{' '}
                   <Link href="/shop" className="text-emerald-700 underline">
@@ -264,7 +439,6 @@ export default function CartPage(): JSX.Element {
 
             <div className="mt-3 space-y-2 text-sm">
               <Row label="Subtotal" value={`R${subtotal.toLocaleString()}`} />
-              {/* Shipping can be decided on checkout */}
               <Row label="Estimated shipping" value="Calculated at checkout" />
               <div className="border-t pt-2 flex items-center justify-between">
                 <div className="font-semibold text-emerald-950">Estimated total</div>

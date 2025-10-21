@@ -3,14 +3,62 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-import { doc, getDoc } from 'firebase/firestore/lite';
+import { v4 as uuidv4 } from 'uuid';
 import { firestore } from '../lib/firebase-client';
 
-/* ───────────────────────────────────────────
+/* ============================================================================
+   Toast Hook and Component
+============================================================================ */
+interface Toast {
+  id: string;
+  title: string;
+  description?: string;
+  variant?: 'default' | 'destructive';
+}
+
+function useToast() {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const toast = useCallback(({ title, description, variant = 'default' }: Omit<Toast, 'id'>) => {
+    const id = uuidv4();
+    setToasts((prev) => [...prev, { id, title, description, variant }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3000);
+  }, []);
+
+  return { toast, toasts };
+}
+
+function ToastComponent({ toasts }: { toasts: Toast[] }) {
+  return (
+    <div className="fixed bottom-4 right-4 space-y-2 z-50">
+      <AnimatePresence>
+        {toasts.map((toast) => (
+          <motion.div
+            key={toast.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className={`p-4 rounded-lg shadow-lg text-white ${
+              toast.variant === 'destructive' ? 'bg-red-600' : 'bg-emerald-600'
+            }`}
+          >
+            <div className="font-semibold">{toast.title}</div>
+            {toast.description && <div className="text-sm mt-1">{toast.description}</div>}
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ============================================================================
    Icons + Breadcrumb
-─────────────────────────────────────────── */
+============================================================================ */
 function IconHome({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -65,9 +113,9 @@ function BreadcrumbsHomeShop() {
   );
 }
 
-/* ───────────────────────────────────────────
+/* ============================================================================
    Types / IDs
-─────────────────────────────────────────── */
+============================================================================ */
 const IDS = ['detox-60', 'growth-100'] as const;
 type ProductID = typeof IDS[number];
 
@@ -80,25 +128,21 @@ type ProductDocFromDb = {
   blurb: string;
   howToUse: string[];
   benefits: string[];
-  gallery?: string[]; // may be missing/empty
+  gallery?: string[];
   rating: number;
   reviews: number;
   updatedAt: number;
 };
 
-/* ───────────────────────────────────────────
-   Local image fallbacks per product (exact)
-   — You can tweak these paths to your assets.
-─────────────────────────────────────────── */
+/* ============================================================================
+   Local image fallbacks per product
+============================================================================ */
 const FALLBACK_GALLERIES: Record<ProductID, string[]> = {
-  // ✅ Scalp Detox Oil · 60ml (local detox assets)
   'detox-60': [
     '/products/scalp-detox-60ml.png',
     '/products/scalp-detox-60ml1.jpeg',
     '/products/scalp-detox-60ml2.jpeg',
   ],
-
-  // ✅ Mega Potent Hair Growth Oil · 100ml (local growth assets)
   'growth-100': [
     '/products/hair-growth-oil-100ml.png',
     '/hero/hair-growth-oil-100ml1.jpeg',
@@ -106,8 +150,80 @@ const FALLBACK_GALLERIES: Record<ProductID, string[]> = {
   ],
 };
 
+/* ============================================================================
+   Firestore and LocalStorage Helpers
+============================================================================ */
+const USER_ID_KEY = 'cart-user-id';
+const CART_PATH = (userId: string) => `carts/${userId}`; // Document path
 
-/* Helper: safe index (handles differing gallery lengths) */
+function getUserId(): string {
+  let userId = localStorage.getItem(USER_ID_KEY);
+  if (!userId) {
+    userId = uuidv4();
+    localStorage.setItem(USER_ID_KEY, userId);
+  }
+  return userId;
+}
+
+type CartRow = { id: string; qty: number };
+
+function parseCart(raw: unknown): CartRow[] {
+  if (!Array.isArray(raw)) return [];
+  const valid: CartRow[] = [];
+  for (const item of raw) {
+    if (
+      typeof item === 'object' &&
+      item !== null &&
+      'id' in item &&
+      'qty' in item &&
+      typeof item.id === 'string' &&
+      typeof item.qty === 'number' &&
+      item.qty > 0
+    ) {
+      valid.push({ id: item.id, qty: Math.floor(item.qty) });
+    }
+  }
+  return valid;
+}
+
+async function readCart(userId: string): Promise<CartRow[]> {
+  try {
+    const docRef = doc(firestore, CART_PATH(userId));
+    const docSnap = await getDoc(docRef);
+    console.log('readCart: userId:', userId, 'data:', docSnap.exists() ? docSnap.data() : 'No document');
+    return docSnap.exists() ? parseCart(docSnap.data().items) : [];
+  } catch (err) {
+    console.error('Error reading cart:', err);
+    throw err;
+  }
+}
+
+async function writeCart(userId: string, items: CartRow[]): Promise<void> {
+  try {
+    const docRef = doc(firestore, CART_PATH(userId));
+    // Fetch existing document to get current token
+    const docSnap = await getDoc(docRef);
+    let token = localStorage.getItem('cart-token');
+    if (docSnap.exists() && docSnap.data().token) {
+      // Use existing token if document exists
+      const existingToken = String(docSnap.data().token);
+      token = existingToken;
+      localStorage.setItem('cart-token', existingToken);
+    } else if (!token) {
+      // Generate new token only if no token exists
+      const newToken = uuidv4();
+      token = newToken;
+      localStorage.setItem('cart-token', newToken);
+    }
+    console.log('writeCart: userId:', userId, 'token:', token, 'items:', items);
+    await setDoc(docRef, { items, updatedAt: Date.now(), token }, { merge: true });
+  } catch (err) {
+    console.error('Error writing cart:', err);
+    throw err;
+  }
+}
+
+/* Helper: safe index */
 function pickAt<T>(arr: T[], idx: number) {
   if (!arr.length) return undefined;
   if (idx < 0) return arr[0];
@@ -115,28 +231,22 @@ function pickAt<T>(arr: T[], idx: number) {
   return arr[idx];
 }
 
-/* ───────────────────────────────────────────
-   Main component – Client-side Firestore read
-─────────────────────────────────────────── */
+/* ============================================================================
+   Main component
+============================================================================ */
 function ShopProductSectionInner() {
+  const { toast, toasts } = useToast();
   const [selectedId, setSelectedId] = useState<ProductID>('detox-60');
   const [products, setProducts] = useState<Partial<Record<ProductID, ProductDocFromDb>>>({});
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-
   const [active, setActive] = useState(0);
   const [qty, setQty] = useState(1);
   const [open, setOpen] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
-
-  const [toastOpen, setToastOpen] = useState(false);
-  const [toastMsg, setToastMsg] = useState('');
-  const toastTimer = useRef<number | undefined>(undefined);
-
-  // If any remote image fails, flip to local fallback for this product.
   const [useLocalFallback, setUseLocalFallback] = useState(false);
 
-  // Loader used on mount and by the Refresh button
+  // Load products
   const loadProducts = async () => {
     setLoading(true);
     setErr(null);
@@ -165,17 +275,12 @@ function ShopProductSectionInner() {
     }
   };
 
-  // first load
   useEffect(() => {
     loadProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const product = products[selectedId];
 
-  // Build the final gallery to render:
-  // 1) If we have NOT flipped to fallback and DB provided non-empty gallery → use DB.
-  // 2) Else use local product-specific fallback.
   const dbGallery = (product?.gallery || []).filter((u) => typeof u === 'string' && u.trim().length > 0);
   const resolvedGallery = !useLocalFallback && dbGallery.length ? dbGallery : FALLBACK_GALLERIES[selectedId];
 
@@ -189,52 +294,37 @@ function ShopProductSectionInner() {
   useEffect(() => {
     setActive(0);
     setQty(1);
-    // Reset fallback flag on product switch; it will auto-fallback if DB gallery is empty anyway
     setUseLocalFallback(false);
   }, [selectedId]);
 
-  // cart
-  const CART_KEY = 'dn-cart';
-  type CartRow = { id: string; qty: number };
-  const readCart = (): CartRow[] => {
-    try {
-      const raw = localStorage.getItem(CART_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed)
-        ? parsed
-            .filter((x) => x && typeof x.id === 'string' && Number.isFinite(x.qty))
-            .map((x) => ({ id: x.id, qty: Math.max(1, Math.min(99, Number(x.qty))) }))
-        : [];
-    } catch {
-      return [];
-    }
-  };
-  const writeCart = (rows: CartRow[]) => localStorage.setItem(CART_KEY, JSON.stringify(rows));
-
-  const showToast = (message: string) => {
-    setToastMsg(message);
-    setToastOpen(true);
-    if (toastTimer.current) window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToastOpen(false), 6200);
-  };
-
-  const addToCart = () => {
+  // Cart operations
+  const addToCart = useCallback(async () => {
     if (!product) return;
-    const addQty = Math.max(1, Math.min(99, qty));
-    const cart = readCart();
-    const i = cart.findIndex((r) => r.id === product.id);
-    if (i >= 0) cart[i].qty = Math.max(1, Math.min(99, cart[i].qty + addQty));
-    else cart.push({ id: product.id, qty: addQty });
-    writeCart(cart);
-
     try {
-      window.dispatchEvent(new CustomEvent('cart:add', { detail: { id: product.id, qty: addQty } }));
-    } catch {}
-
-    setCelebrate(true);
-    setTimeout(() => setCelebrate(false), 9200);
-    showToast(`Added ${addQty} × ${product.name} to cart`);
-  };
+      const userId = getUserId();
+      const addQty = Math.max(1, Math.min(99, qty));
+      const cart = await readCart(userId);
+      const existing = cart.find((r) => r.id === product.id);
+      let nextCart: CartRow[];
+      if (existing) {
+        nextCart = cart.map((item) =>
+          item.id === product.id ? { ...item, qty: Math.max(1, Math.min(99, item.qty + addQty)) } : item
+        );
+      } else {
+        nextCart = [...cart, { id: product.id, qty: addQty }];
+      }
+      await writeCart(userId, nextCart);
+      setCelebrate(true);
+      setTimeout(() => setCelebrate(false), 9200);
+      toast({ title: 'Added to cart', description: `Added ${addQty} × ${product.name} to cart.` });
+      try {
+        window.dispatchEvent(new CustomEvent('cart:add', { detail: { id: product.id, qty: addQty } }));
+      } catch {}
+    } catch (err) {
+      console.error('addToCart error:', err);
+      toast({ title: 'Error', description: `Failed to add item to cart: ${err instanceof Error ? err.message : 'Unknown error'}`, variant: 'destructive' });
+    }
+  }, [product, qty, toast]);
 
   const options = (IDS.filter((id) => products[id]) as ProductID[]).map((id) => ({
     id,
@@ -245,6 +335,7 @@ function ShopProductSectionInner() {
 
   return (
     <>
+      <ToastComponent toasts={toasts} />
       <BreadcrumbsHomeShop />
 
       {/* Product picker */}
@@ -281,7 +372,7 @@ function ShopProductSectionInner() {
         </div>
       </div>
 
-      {/* Empty state (no products) */}
+      {/* Empty state */}
       {noProducts && (
         <section className="py-16">
           <div className="max-w-6xl mx-auto px-4">
@@ -305,7 +396,6 @@ function ShopProductSectionInner() {
       {/* Product section */}
       {product && (
         <section className="relative bg-gradient-to-b from-white via-white to-emerald-50/20">
-          {/* glows */}
           <div
             aria-hidden
             className="pointer-events-none absolute -z-10 -top-24 -left-24 h-72 w-72 rounded-full blur-3xl"
@@ -335,7 +425,6 @@ function ShopProductSectionInner() {
                     sizes="(min-width:768px) 550px, 90vw"
                     className="object-contain p-8 md:p-10 transition-transform duration-500 will-change-transform hover:scale-[1.03]"
                     priority
-                    // If any remote image fails → switch to local gallery for this product
                     onError={() => setUseLocalFallback(true)}
                     unoptimized
                   />
@@ -351,9 +440,7 @@ function ShopProductSectionInner() {
                   {resolvedGallery.map((src, i) => (
                     <button
                       key={src + i}
-                      onClick={() => {
-                        setActive(i);
-                      }}
+                      onClick={() => setActive(i)}
                       className={`relative aspect-square rounded-xl border transition ${
                         active === i ? 'border-neutral-900' : 'border-neutral-200 hover:border-neutral-300'
                       }`}
@@ -435,48 +522,15 @@ function ShopProductSectionInner() {
               </p>
             </div>
           </div>
-
-          {/* Toast */}
-          <AnimatePresence>
-            {toastOpen && (
-              <motion.div
-                role="status"
-                aria-live="polite"
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.98 }}
-                transition={{ duration: 0.2 }}
-                className="fixed inset-0 z-[100] grid place-items-center p-4 pointer-events-none"
-              >
-                <div className="pointer-events-auto flex items-start gap-3 rounded-2xl border border-emerald-200 bg-white p-3 shadow-[0_12px_30px_rgba(16,185,129,0.18)]">
-                  <span className="grid place-items-center w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
-                    ✓
-                  </span>
-                  <div className="pr-2">
-                    <div className="text-sm font-medium text-emerald-900">Item added to cart</div>
-                    <div className="text-xs text-emerald-800/80">{toastMsg}</div>
-                    <div className="mt-2 flex gap-2">
-                      <Link href="/cart" className="inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs bg-emerald-600 text-white">
-                        View cart
-                      </Link>
-                      <button onClick={() => setToastOpen(false)} className="inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs border">
-                        Close
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </section>
       )}
     </>
   );
 }
 
-/* ───────────────────────────────────────────
+/* ============================================================================
    UI atoms
-─────────────────────────────────────────── */
+============================================================================ */
 function Rating({ rating, reviews }: { rating: number; reviews: number }) {
   const full = Math.floor(rating);
   const half = rating - full >= 0.5;
@@ -553,7 +607,7 @@ function ConfettiBurst() {
   );
 }
 
-/* Export both named and default (so either import style works) */
+/* Export both named and default */
 export const ShopProductSection = ShopProductSectionInner;
 export default function Page() {
   return <ShopProductSectionInner />;

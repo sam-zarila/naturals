@@ -1,173 +1,513 @@
-'use client';
+"use client";
 
-import { AnimatePresence, motion } from 'framer-motion';
-import Image from 'next/image';
-import Link from 'next/link';
-import React, { JSX, useEffect, useMemo, useState } from 'react';
+import React, { JSX, useEffect, useMemo, useState, useCallback } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
+import { doc, getDoc, setDoc, collection, addDoc, updateDoc } from "firebase/firestore";
+import { v4 as uuidv4 } from "uuid";
+import { firestore } from "../lib/firebase-client";
 
 /* ============================================================================
-   Types & Catalog
+   Toast Hook and Component
+============================================================================ */
+interface Toast {
+  id: string;
+  title: string;
+  description?: string;
+  variant?: "default" | "destructive";
+}
+
+function useToast() {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const toast = useCallback(
+    ({ title, description, variant = "default" }: Omit<Toast, "id">) => {
+      const id = uuidv4();
+      setToasts((prev) => [...prev, { id, title, description, variant }]);
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 3000);
+    },
+    []
+  );
+
+  return { toast, toasts };
+}
+
+function ToastComponent({ toasts }: { toasts: Toast[] }) {
+  return (
+    <div className="fixed bottom-4 right-4 space-y-2 z-50">
+      <AnimatePresence>
+        {toasts.map((toast) => (
+          <motion.div
+            key={toast.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className={`p-4 rounded-lg shadow-lg text-white ${
+              toast.variant === "destructive" ? "bg-red-600" : "bg-emerald-600"
+            }`}
+          >
+            <div className="font-semibold">{toast.title}</div>
+            {toast.description && <div className="text-sm mt-1">{toast.description}</div>}
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ============================================================================
+   Types
 ============================================================================ */
 type Product = {
   id: string;
   name: string;
-  price: number; // ZAR
-  currency: 'R';
+  price: number;
+  currency: "R";
   img: string;
 };
-type StoredCartItem = { id: string; qty: number };
-type LineItem = Product & { qty: number; lineTotal: number };
 
+type StoredCartItem = { id: string; qty: number };
+
+type ExpandedLine = Product & {
+  qty: number;
+  lineTotal: number;
+};
+
+interface CheckoutPayload {
+  orderId?: string;
+  email: string;
+  amountZar: number;
+  name?: string;
+  phone?: string;
+  cart?: Array<{ id: string; name: string; price: number; qty: number }>;
+}
+
+interface PaystackInitResponse {
+  authorization_url: string;
+  reference: string;
+}
+
+/* ============================================================================
+   Catalog
+============================================================================ */
 const CATALOG: Record<string, Product> = {
-  'growth-100': {
-    id: 'growth-100',
-    name: 'Hair Growth Oil · 100ml',
+  "growth-100": {
+    id: "growth-100",
+    name: "Hair Growth Oil · 100ml",
     price: 300,
-    currency: 'R',
-    img: '/products/hair-growth-oil-100ml.png',
+    currency: "R",
+    img: "/products/hair-growth-oil-100ml.png",
   },
-  'detox-60': {
-    id: 'detox-60',
-    name: 'Scalp Detox Oil · 60ml',
+  "detox-60": {
+    id: "detox-60",
+    name: "Scalp Detox Oil · 60ml",
     price: 260,
-    currency: 'R',
-    img: '/products/scalp-detox-oil-60ml.png',
+    currency: "R",
+    img: "/products/scalp-detox-oil-60ml.png",
   },
 };
 
 /* ============================================================================
-   Local storage helpers (typed)
+   Firestore and LocalStorage Helpers
 ============================================================================ */
-const CART_KEY = 'dn-cart';
+const USER_ID_KEY = "cart-user-id";
+const CART_PATH = (userId: string) => `carts/${userId}`;
 
-function isStoredCartItem(u: unknown): u is StoredCartItem {
-  return (
-    typeof u === 'object' &&
-    u !== null &&
-    typeof (u as { id?: unknown }).id === 'string' &&
-    Number.isFinite((u as { qty?: unknown }).qty)
-  );
+function getUserId(): string {
+  let userId = localStorage.getItem(USER_ID_KEY);
+  if (!userId) {
+    userId = uuidv4();
+    localStorage.setItem(USER_ID_KEY, userId);
+  }
+  return userId;
 }
-function readCart(): StoredCartItem[] {
+
+function parseCart(raw: unknown): StoredCartItem[] {
+  if (!Array.isArray(raw)) return [];
+  const valid: StoredCartItem[] = [];
+  for (const item of raw) {
+    if (
+      typeof item === "object" &&
+      item !== null &&
+      "id" in item &&
+      "qty" in item &&
+      typeof item.id === "string" &&
+      typeof item.qty === "number" &&
+      item.qty > 0
+    ) {
+      valid.push({ id: item.id, qty: Math.floor(item.qty) });
+    }
+  }
+  return valid;
+}
+
+async function readCart(userId: string): Promise<StoredCartItem[]> {
   try {
-    const raw = localStorage.getItem(CART_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter(isStoredCartItem)
-      .map((x) => ({ id: x.id, qty: Math.max(1, Math.min(99, Number(x.qty))) }));
-  } catch {
-    return [];
+    const docRef = doc(firestore, CART_PATH(userId));
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists() ? parseCart(docSnap.data().items) : [];
+  } catch (err) {
+    console.error("Error reading cart:", err);
+    throw err;
   }
 }
-function writeCart(next: StoredCartItem[]) {
+
+async function writeCart(userId: string, items: StoredCartItem[]): Promise<void> {
   try {
-    localStorage.setItem(CART_KEY, JSON.stringify(next));
-  } catch {}
+    const docRef = doc(firestore, CART_PATH(userId));
+    const docSnap = await getDoc(docRef);
+
+    // Start with any token already in localStorage (may be null)
+    let token = localStorage.getItem("cart-token");
+
+    // Prefer token from Firestore if present, otherwise keep local token
+    let tokenFromDoc: unknown = null;
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      tokenFromDoc = (data as any).token ?? null;
+    }
+
+    // Resolve a final string token (guaranteed non-null)
+    const resolvedToken = tokenFromDoc ? String(tokenFromDoc) : token ?? uuidv4();
+
+    // Persist resolved token to localStorage and Firestore
+    localStorage.setItem("cart-token", resolvedToken);
+    await setDoc(docRef, { items, updatedAt: Date.now(), token: resolvedToken }, { merge: true });
+  } catch (err) {
+    console.error("Error writing cart:", err);
+    throw err;
+  }
+}
+
+// Function to clear cart after successful checkout
+async function clearCartAfterCheckout(userId: string): Promise<void> {
+  try {
+    const docRef = doc(firestore, CART_PATH(userId));
+    let token: string | null = localStorage.getItem("cart-token");
+    
+    if (!token) {
+      token = uuidv4();
+      localStorage.setItem("cart-token", token);
+    }
+    
+    console.log('clearCartAfterCheckout: userId:', userId, 'token:', token);
+    await setDoc(docRef, { items: [], updatedAt: Date.now(), token }, { merge: true });
+    
+    // Also update localStorage to reflect empty cart
+    if (typeof window !== "undefined") {
+      const event = new CustomEvent("cartUpdated", { detail: { items: [] } });
+      window.dispatchEvent(event);
+    }
+  } catch (err) {
+    console.error("Error clearing cart after checkout:", err);
+    throw err;
+  }
 }
 
 /* ============================================================================
-   Breadcrumbs (Home → Shop → Checkout)
+   Courier Services
 ============================================================================ */
-function IconHome({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M3 11.5 12 4l9 7.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M6 10.5V20h12v-9.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-function IconBag({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M6 8h12l-1 12H7L6 8Z" />
-      <path d="M9 8a3 3 0 1 1 6 0" strokeLinecap="round" />
-    </svg>
-  );
-}
-function IconCard({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="M3 10h18" />
-      <path d="M8 15h4" strokeLinecap="round" />
-    </svg>
-  );
-}
-function IconChevron({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 20 20" className={className} fill="currentColor">
-      <path d="M7 5l6 5-6 5V5z" />
-    </svg>
-  );
-}
-
-function Breadcrumbs() {
-  return (
-    <nav aria-label="Breadcrumb" className="bg-gradient-to-b from-emerald-50/60 to-white border-b">
-      <div className="max-w-6xl mx-auto px-4 py-3">
-        <ol className="flex flex-wrap items-center gap-1.5">
-          {/* Home */}
-          <li>
-            <Link
-              href="/"
-              className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
-            >
-              <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
-                <IconHome className="w-3.5 h-3.5" />
-              </span>
-              <span className="font-medium">Home</span>
-            </Link>
-          </li>
-
-          <li aria-hidden className="px-1 text-emerald-700/60">
-            <IconChevron className="w-4 h-4" />
-          </li>
-
-          {/* Shop */}
-          <li>
-            <Link
-              href="/shop"
-              className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
-            >
-              <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
-                <IconBag className="w-3.5 h-3.5" />
-              </span>
-              <span className="font-medium">Shop</span>
-            </Link>
-          </li>
-
-          <li aria-hidden className="px-1 text-emerald-700/60">
-            <IconChevron className="w-4 h-4" />
-          </li>
-
-          {/* Checkout (current) */}
-          <li aria-current="page">
-            <span className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 text-white px-3 py-1.5 text-sm shadow">
-              <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-white/20 border border-white/30">
-                <IconCard className="w-3.5 h-3.5" />
-              </span>
-              <span className="font-semibold">Checkout</span>
-            </span>
-          </li>
-        </ol>
-      </div>
-    </nav>
-  );
-}
+const COURIER_SERVICES = [
+  { value: "the-courier-guy", label: "The Courier Guy" },
+  { value: "dhl-express", label: "DHL Express" },
+  { value: "fedex", label: "FedEx" },
+  { value: "aramex", label: "Aramex" },
+  { value: "fastway-couriers", label: "Fastway Couriers" },
+  { value: "ram-couriers", label: "RAM Couriers" },
+  { value: "dsv", label: "DSV" },
+  { value: "postnet", label: "PostNet" },
+] as const;
 
 /* ============================================================================
-   Page
+   South African Provinces
 ============================================================================ */
-export default function CheckoutPage(): JSX.Element {
+const PROVINCES = [
+  { value: "eastern-cape", label: "Eastern Cape" },
+  { value: "free-state", label: "Free State" },
+  { value: "gauteng", label: "Gauteng" },
+  { value: "kwa-zulu-natal", label: "KwaZulu-Natal" },
+  { value: "limpopo", label: "Limpopo" },
+  { value: "mpumalanga", label: "Mpumalanga" },
+  { value: "northern-cape", label: "Northern Cape" },
+  { value: "north-west", label: "North West" },
+  { value: "western-cape", label: "Western Cape" },
+] as const;
+
+/* ============================================================================
+   Checkout Component
+============================================================================ */
+function CheckoutBody(): JSX.Element {
+  const { toast, toasts } = useToast();
+  const router = useRouter();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [items, setItems] = useState<StoredCartItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [payLoading, setPayLoading] = useState(false);
+
+  // Shipping cost (fixed for small packages in SA)
+  const shipping = 100;
+  const getShippingLabel = (method: string) => {
+    const service = COURIER_SERVICES.find(s => s.value === method);
+    return service ? service.label : 'Standard';
+  };
+
+  // Initialize userId and fetch cart
+  useEffect(() => {
+    const id = getUserId();
+    setUserId(id);
+    setLoading(true);
+    readCart(id)
+      .then((cart) => {
+        setItems(cart);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Cart load error:", err);
+        toast({
+          title: "Error",
+          description: `Failed to load cart: ${err instanceof Error ? err.message : "Unknown error"}`,
+          variant: "destructive",
+        });
+        setLoading(false);
+      });
+  }, [toast]);
+
+  // Listen for cart updates from other components
+  useEffect(() => {
+    const handleCartUpdate = (event: CustomEvent) => {
+      if (event.detail && Array.isArray(event.detail.items)) {
+        setItems(event.detail.items);
+      }
+    };
+
+    window.addEventListener("cartUpdated", handleCartUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener("cartUpdated", handleCartUpdate as EventListener);
+    };
+  }, []);
+
+  // Expand items with catalog data
+  const lines: ExpandedLine[] = useMemo(() => {
+    return items
+      .map((it) => {
+        const p = CATALOG[it.id];
+        if (!p) return null;
+        const qty = Math.max(1, it.qty);
+        return { ...p, qty, lineTotal: qty * p.price };
+      })
+      .filter((x): x is ExpandedLine => Boolean(x));
+  }, [items]);
+
+  const subtotal = useMemo(() => lines.reduce((sum, l) => sum + l.lineTotal, 0), [lines]);
+  const grandTotal = subtotal + shipping;
+
+  // Form handling
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    address1: "",
+    address2: "",
+    city: "",
+    province: "",
+    postalCode: "",
+    notes: "",
+    shippingMethod: "",
+  });
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof typeof formData, string>>>({});
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  const validateForm = () => {
+    const errors: Partial<Record<keyof typeof formData, string>> = {};
+    if (!formData.firstName.trim()) errors.firstName = "First name is required";
+    if (!formData.lastName.trim()) errors.lastName = "Last name is required";
+    if (!formData.email.trim() || !/\S+@\S+\.\S+/.test(formData.email))
+      errors.email = "Valid email is required";
+    if (!formData.phone.trim() || !/^\d{10,}$/.test(formData.phone))
+      errors.phone = "Valid phone number is required (10+ digits)";
+    if (!formData.address1.trim()) errors.address1 = "Address is required";
+    if (!formData.city.trim()) errors.city = "City is required";
+    if (!formData.province) errors.province = "Province is required";
+    if (!formData.postalCode.trim()) errors.postalCode = "Postal code is required";
+    if (!formData.shippingMethod) errors.shippingMethod = "Shipping method is required";
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Payment handler
+  const onPay = useCallback(async () => {
+    if (!validateForm()) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields correctly.",
+        variant: "destructive",
+      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    if (!userId || !items.length) {
+      toast({
+        title: "Error",
+        description: "Cart is empty or user not identified.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setPayLoading(true);
+    try {
+      // Create order in Firestore
+      const ordersRef = collection(firestore, "orders");
+      const orderData = {
+        userId,
+        items,
+        totals: {
+          subtotal,
+          shipping,
+          grandTotal,
+        },
+        status: "pending",
+        customer: {
+          name: `${formData.firstName} ${formData.lastName}`,
+          email: formData.email,
+          phone: formData.phone,
+          shipping: "courier",
+          address: {
+            line1: formData.address1,
+            line2: formData.address2 || "",
+            city: formData.city,
+            province: formData.province,
+            postalCode: formData.postalCode,
+          },
+          notes: formData.notes || "",
+        },
+        shippingMethod: formData.shippingMethod,
+        createdAt: new Date(),
+      };
+      
+      console.log("Creating order:", orderData);
+      const orderDoc = await addDoc(ordersRef, orderData);
+      const orderId = orderDoc.id;
+
+      // Show feedback after order creation
+      toast({
+        title: "Order Created",
+        description: "Redirecting to payment...",
+      });
+
+      const payload: CheckoutPayload = {
+        orderId,
+        email: formData.email,
+        amountZar: grandTotal,
+        name: `${formData.firstName} ${formData.lastName}`,
+        phone: formData.phone,
+        cart: lines.map(({ id, name, price, qty }) => ({ id, name, price, qty })),
+      };
+
+      const res = await fetch("/api/paystack/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      
+      if (!res.ok) {
+        let errorText = '';
+        try {
+          errorText = await res.text();
+        } catch {
+          errorText = 'No response text';
+        }
+        console.error('API Error Response:', errorText);
+        throw new Error(`Payment initiation failed: ${res.status} - ${errorText || 'Unknown error'}`);
+      }
+
+      const data: PaystackInitResponse = await res.json();
+
+      // Clear the cart before redirecting to payment
+      await clearCartAfterCheckout(userId);
+      
+      toast({
+        title: "Cart Cleared",
+        description: "Your cart has been cleared. Redirecting to payment...",
+      });
+
+      // Redirect to Paystack authorization URL
+      window.location.href = data.authorization_url;
+    } catch (err) {
+      console.error("onPay error:", err);
+      const message = err instanceof Error ? err.message : "Payment error";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setPayLoading(false);
+    }
+  }, [userId, items, lines, subtotal, shipping, grandTotal, formData, toast]);
+
+  // Check if cart is empty
+  useEffect(() => {
+    if (items.length === 0 && !loading) {
+      toast({
+        title: "Cart is empty",
+        description: "Please add items to your cart before checkout.",
+        variant: "destructive",
+      });
+      // Redirect to shop after a short delay
+      const timer = setTimeout(() => {
+        router.push("/shop");
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [items, loading, toast, router]);
+
+  if (loading) {
+    return (
+      <main className="bg-white min-h-screen flex items-center justify-center">
+        <div className="text-center">Loading checkout...</div>
+      </main>
+    );
+  }
+
+  if (items.length === 0 && !loading) {
+    return (
+      <main className="bg-white min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 mb-4">Your cart is empty</div>
+          <Link href="/shop" className="text-emerald-700 underline">
+            Continue shopping
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <main className="bg-white">
-      {/* Simple header (logo + back to cart) */}
-      <div className="border-b bg-white/80 backdrop-blur">
+    <main className="bg-white min-h-screen">
+      <ToastComponent toasts={toasts} />
+      {/* Header */}
+      <div className="border-b">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Delightful Naturals" width={32} height={32} className="rounded" />
+            <Image
+              src="/logo.png"
+              alt="Delightful Naturals"
+              width={32}
+              height={32}
+              className="rounded"
+            />
             <span className="font-semibold text-emerald-900">Delightful Naturals</span>
           </Link>
           <Link href="/cart" className="text-sm text-emerald-700 hover:underline">
@@ -176,475 +516,280 @@ export default function CheckoutPage(): JSX.Element {
         </div>
       </div>
 
-      {/* Beautiful breadcrumb bar */}
-      <Breadcrumbs />
-
-      <CheckoutBody />
-    </main>
-  );
-}
-
-/* ============================================================================
-   Checkout body (your original UI/logic preserved)
-============================================================================ */
-function CheckoutBody(): JSX.Element {
-  const [cart, setCart] = useState<StoredCartItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-
-  // buyer/contact form (minimal for Paystack initialize)
-  const [form, setForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    address1: '',
-    address2: '',
-    city: '',
-    province: '',
-    postalCode: '',
-    notes: '',
-    shipping: 'courier' as 'courier' | 'pickup',
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    setCart(readCart());
-  }, []);
-
-  const lines: LineItem[] = useMemo(
-    () =>
-      cart
-        .map((c) => {
-          const p = CATALOG[c.id];
-          if (!p) return null;
-          const qty = Math.max(1, c.qty || 1);
-          return { ...p, qty, lineTotal: qty * p.price };
-        })
-        .filter(Boolean) as LineItem[],
-    [cart]
-  );
-
-  const subtotal = useMemo(() => lines.reduce((s, x) => s + x.lineTotal, 0), [lines]);
-  const shipping = form.shipping === 'courier' ? 80 : 0;
-  const grandTotal = subtotal + shipping;
-
-  const updateQty = (id: string, qty: number) => {
-    const q = Math.max(1, qty);
-    const next = cart.map((x) => (x.id === id ? { ...x, qty: q } : x));
-    setCart(next);
-    writeCart(next);
-  };
-  const removeItem = (id: string) => {
-    const next = cart.filter((x) => x.id !== id);
-    setCart(next);
-    writeCart(next);
-  };
-
-  const validate = () => {
-    const e: Record<string, string> = {};
-    if (!form.firstName.trim()) e.firstName = 'Required';
-    if (!form.lastName.trim()) e.lastName = 'Required';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Enter a valid email';
-    if (!/^\+?[0-9\s()-]{7,}$/.test(form.phone)) e.phone = 'Enter a valid phone';
-    if (form.shipping === 'courier') {
-      if (!form.address1.trim()) e.address1 = 'Required';
-      if (!form.city.trim()) e.city = 'Required';
-      if (!form.province.trim()) e.province = 'Required';
-      if (!form.postalCode.trim()) e.postalCode = 'Required';
-    }
-    if (lines.length === 0) e.cart = 'Your cart is empty';
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  type PaystackInitOk = { authorization_url: string; reference: string };
-  function isPaystackInitOk(u: unknown): u is PaystackInitOk {
-    return (
-      typeof u === 'object' &&
-      u !== null &&
-      typeof (u as { authorization_url?: unknown }).authorization_url === 'string' &&
-      typeof (u as { reference?: unknown }).reference === 'string'
-    );
-  }
-
-  const onPay = async () => {
-    if (!validate()) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-    setLoading(true);
-    try {
-      const cartForMeta = lines.map(({ id, name, price, qty }) => ({ id, name, price, qty }));
-
-      const res = await fetch('/api/paystack/initialize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: form.email,
-          amountZar: grandTotal,
-          name: `${form.firstName} ${form.lastName}`.trim(),
-          phone: form.phone,
-          cart: cartForMeta,
-        }),
-      });
-
-      if (!res.ok) {
-        let message = 'Failed to start payment';
-        try {
-          const j: unknown = await res.json();
-          if (typeof j === 'object' && j && typeof (j as { message?: unknown }).message === 'string') {
-            message = (j as { message: string }).message;
-          }
-        } catch {}
-        throw new Error(message);
-      }
-
-      const data: unknown = await res.json();
-      if (!isPaystackInitOk(data)) {
-        throw new Error('Invalid response from payment gateway');
-      }
-
-      window.location.href = data.authorization_url;
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Payment error';
-      alert(msg);
-      setLoading(false);
-    }
-  };
-
-  return (
-    <>
-      {/* Layout */}
+      {/* Content */}
       <div className="max-w-6xl mx-auto px-4 py-8 lg:py-12 grid lg:grid-cols-5 gap-8">
-        {/* Left: form */}
+        {/* Left: Form */}
         <section className="lg:col-span-3">
-          <h1 className="text-2xl md:text-3xl font-bold text-emerald-950">Checkout</h1>
-          <p className="text-emerald-900/70 mt-1">Enter your details below to complete your purchase.</p>
+          <h1 className="text-3xl font-bold text-emerald-950">Checkout</h1>
+          <p className="text-emerald-900/70 mt-1">Enter your details to complete your order.</p>
 
-          {errors.cart && (
-            <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 text-amber-900 p-3 text-sm">
-              {errors.cart}
-            </div>
-          )}
-
-          <Card title="Contact information">
-            <div className="grid sm:grid-cols-2 gap-3">
-              <Field
-                id="firstName"
-                label="First name"
-                value={form.firstName}
-                onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-                error={errors.firstName}
-              />
-              <Field
-                id="lastName"
-                label="Last name"
-                value={form.lastName}
-                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-                error={errors.lastName}
-              />
-            </div>
-            <div className="grid sm:grid-cols-2 gap-3 mt-3">
-              <Field
-                id="email"
-                type="email"
-                label="Email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                error={errors.email}
-              />
-              <Field
-                id="phone"
-                label="Phone"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                error={errors.phone}
-                placeholder="+27 ..."
-              />
-            </div>
-          </Card>
-
-          <Card title="Delivery">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <RadioCard
-                checked={form.shipping === 'courier'}
-                onChange={() => setForm({ ...form, shipping: 'courier' })}
-                title="Courier"
-                subtitle="2–4 business days · R80"
-              />
-              <RadioCard
-                checked={form.shipping === 'pickup'}
-                onChange={() => setForm({ ...form, shipping: 'pickup' })}
-                title="Pickup"
-                subtitle="We’ll arrange via WhatsApp · Free"
-              />
-            </div>
-
-            {form.shipping === 'courier' && (
-              <div className="mt-4 grid sm:grid-cols-2 gap-3">
-                <Field
+          <div className="mt-4 rounded-2xl border bg-white shadow-sm p-4 sm:p-5">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="firstName" className="block text-sm font-medium text-emerald-950">
+                    First Name
+                  </label>
+                  <input
+                    id="firstName"
+                    name="firstName"
+                    type="text"
+                    value={formData.firstName}
+                    onChange={handleInputChange}
+                    className={`mt-1 block w-full rounded-xl border ${
+                      formErrors.firstName ? "border-red-500" : "border-neutral-200"
+                    } p-2 text-sm`}
+                  />
+                  {formErrors.firstName && (
+                    <p className="mt-1 text-xs text-red-600">{formErrors.firstName}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="lastName" className="block text-sm font-medium text-emerald-950">
+                    Last Name
+                  </label>
+                  <input
+                    id="lastName"
+                    name="lastName"
+                    type="text"
+                    value={formData.lastName}
+                    onChange={handleInputChange}
+                    className={`mt-1 block w-full rounded-xl border ${
+                      formErrors.lastName ? "border-red-500" : "border-neutral-200"
+                    } p-2 text-sm`}
+                  />
+                  {formErrors.lastName && (
+                    <p className="mt-1 text-xs text-red-600">{formErrors.lastName}</p>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-emerald-950">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className={`mt-1 block w-full rounded-xl border ${
+                    formErrors.email ? "border-red-500" : "border-neutral-200"
+                  } p-2 text-sm`}
+                />
+                {formErrors.email && (
+                  <p className="mt-1 text-xs text-red-600">{formErrors.email}</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-emerald-950">
+                  Phone
+                </label>
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  className={`mt-1 block w-full rounded-xl border ${
+                    formErrors.phone ? "border-red-500" : "border-neutral-200"
+                  } p-2 text-sm`}
+                />
+                {formErrors.phone && <p className="mt-1 text-xs text-red-600">{formErrors.phone}</p>}
+              </div>
+              <div>
+                <label htmlFor="address1" className="block text-sm font-medium text-emerald-950">
+                  Address Line 1
+                </label>
+                <input
                   id="address1"
-                  label="Address line 1"
-                  value={form.address1}
-                  onChange={(e) => setForm({ ...form, address1: e.target.value })}
-                  error={errors.address1}
+                  name="address1"
+                  type="text"
+                  value={formData.address1}
+                  onChange={handleInputChange}
+                  className={`mt-1 block w-full rounded-xl border ${
+                    formErrors.address1 ? "border-red-500" : "border-neutral-200"
+                  } p-2 text-sm`}
                 />
-                <Field
+                {formErrors.address1 && (
+                  <p className="mt-1 text-xs text-red-600">{formErrors.address1}</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="address2" className="block text-sm font-medium text-emerald-950">
+                  Address Line 2 (Optional)
+                </label>
+                <input
                   id="address2"
-                  label="Address line 2 (optional)"
-                  value={form.address2}
-                  onChange={(e) => setForm({ ...form, address2: e.target.value })}
-                />
-                <Field
-                  id="city"
-                  label="City"
-                  value={form.city}
-                  onChange={(e) => setForm({ ...form, city: e.target.value })}
-                  error={errors.city}
-                />
-                <Field
-                  id="province"
-                  label="Province"
-                  value={form.province}
-                  onChange={(e) => setForm({ ...form, province: e.target.value })}
-                  error={errors.province}
-                  placeholder="e.g. Gauteng"
-                />
-                <Field
-                  id="postalCode"
-                  label="Postal code"
-                  value={form.postalCode}
-                  onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
-                  error={errors.postalCode}
+                  name="address2"
+                  type="text"
+                  value={formData.address2}
+                  onChange={handleInputChange}
+                  className="mt-1 block w-full rounded-xl border border-neutral-200 p-2 text-sm"
                 />
               </div>
-            )}
-
-            <div className="mt-3">
-              <TextArea
-                id="notes"
-                label="Order notes (optional)"
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                rows={4}
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="city" className="block text-sm font-medium text-emerald-950">
+                    City
+                  </label>
+                  <input
+                    id="city"
+                    name="city"
+                    type="text"
+                    value={formData.city}
+                    onChange={handleInputChange}
+                    className={`mt-1 block w-full rounded-xl border ${
+                      formErrors.city ? "border-red-500" : "border-neutral-200"
+                    } p-2 text-sm`}
+                  />
+                  {formErrors.city && <p className="mt-1 text-xs text-red-600">{formErrors.city}</p>}
+                </div>
+                <div>
+                  <label htmlFor="province" className="block text-sm font-medium text-emerald-950">
+                    Province
+                  </label>
+                  <select
+                    id="province"
+                    name="province"
+                    value={formData.province}
+                    onChange={handleInputChange}
+                    className={`mt-1 block w-full rounded-xl border ${
+                      formErrors.province ? "border-red-500" : "border-neutral-200"
+                    } p-2 text-sm`}
+                  >
+                    <option value="">Select province</option>
+                    {PROVINCES.map((prov) => (
+                      <option key={prov.value} value={prov.value}>
+                        {prov.label}
+                      </option>
+                    ))}
+                  </select>
+                  {formErrors.province && (
+                    <p className="mt-1 text-xs text-red-600">{formErrors.province}</p>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="postalCode" className="block text-sm font-medium text-emerald-950">
+                    Postal Code
+                  </label>
+                  <input
+                    id="postalCode"
+                    name="postalCode"
+                    type="text"
+                    value={formData.postalCode}
+                    onChange={handleInputChange}
+                    className={`mt-1 block w-full rounded-xl border ${
+                      formErrors.postalCode ? "border-red-500" : "border-neutral-200"
+                    } p-2 text-sm`}
+                  />
+                  {formErrors.postalCode && (
+                    <p className="mt-1 text-xs text-red-600">{formErrors.postalCode}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="shippingMethod" className="block text-sm font-medium text-emerald-950">
+                    Shipping Method
+                  </label>
+                  <select
+                    id="shippingMethod"
+                    name="shippingMethod"
+                    value={formData.shippingMethod}
+                    onChange={handleInputChange}
+                    className={`mt-1 block w-full rounded-xl border ${
+                      formErrors.shippingMethod ? "border-red-500" : "border-neutral-200"
+                    } p-2 text-sm`}
+                  >
+                    <option value="">Select shipping method</option>
+                    {COURIER_SERVICES.map((service) => (
+                      <option key={service.value} value={service.value}>
+                        {service.label}
+                      </option>
+                    ))}
+                  </select>
+                  {formErrors.shippingMethod && (
+                    <p className="mt-1 text-xs text-red-600">{formErrors.shippingMethod}</p>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label htmlFor="notes" className="block text-sm font-medium text-emerald-950">
+                  Order Notes (Optional)
+                </label>
+                <textarea
+                  id="notes"
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  className="mt-1 block w-full rounded-xl border border-neutral-200 p-2 text-sm"
+                  rows={3}
+                />
+              </div>
             </div>
-          </Card>
-
-          <div className="mt-6 flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={onPay}
-              disabled={loading}
-              className="relative inline-flex items-center justify-center rounded-2xl px-6 py-3 bg-emerald-600 text-white font-semibold shadow hover:bg-emerald-700 disabled:opacity-60"
-            >
-              {loading ? (
-                <>
-                  <Spinner />
-                  <span className="ml-2">Opening Paystack…</span>
-                </>
-              ) : (
-                'Pay now'
-              )}
-            </button>
-            <Link href="/cart" className="inline-flex items-center justify-center rounded-2xl px-6 py-3 border">
-              Back to cart
-            </Link>
-          </div>
-          <div className="mt-3 text-[12px] text-emerald-900/70">
-            You’ll be redirected to Paystack to complete your secure payment in ZAR.
           </div>
         </section>
 
-        {/* Right: summary */}
+        {/* Right: Summary */}
         <aside className="lg:col-span-2">
           <div className="rounded-2xl border bg-white shadow-sm p-4 sm:p-5">
-            <div className="font-semibold text-emerald-950">Order summary</div>
-
-            <div className="mt-3 divide-y">
-              <AnimatePresence initial={false}>
-                {lines.map((it) => (
-                  <motion.div
-                    key={it.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    className="py-3 flex items-center gap-3"
-                  >
-                    <Image
-                      src={it.img}
-                      alt={it.name}
-                      width={56}
-                      height={56}
-                      className="w-14 h-14 rounded border object-contain bg-white"
-                    />
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-emerald-950">{it.name}</div>
-                      <div className="text-xs text-emerald-800/70">R{it.price.toLocaleString()}</div>
-                      <div className="mt-1 inline-flex items-center rounded-lg border overflow-hidden">
-                        <button
-                          className="w-7 h-7 grid place-items-center hover:bg-emerald-50"
-                          onClick={() => updateQty(it.id, it.qty - 1)}
-                          aria-label="Decrease quantity"
-                        >
-                          −
-                        </button>
-                        <div className="w-8 h-7 grid place-items-center text-sm">{it.qty}</div>
-                        <button
-                          className="w-7 h-7 grid place-items-center hover:bg-emerald-50"
-                          onClick={() => updateQty(it.id, it.qty + 1)}
-                          aria-label="Increase quantity"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                    <div className="text-sm font-semibold text-emerald-950">
-                      R{it.lineTotal.toLocaleString()}
-                    </div>
-                    <button
-                      onClick={() => removeItem(it.id)}
-                      className="ml-1 text-emerald-700/70 hover:text-emerald-900"
-                      title="Remove"
-                      aria-label="Remove"
-                    >
-                      ×
-                    </button>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-              {lines.length === 0 && (
-                <div className="py-6 text-sm text-emerald-900/70">Your cart is empty.</div>
-              )}
-            </div>
-
-            <div className="mt-4 space-y-2 text-sm">
-              <Row label="Subtotal" value={`R${subtotal.toLocaleString()}`} />
-              <Row label="Shipping" value={shipping ? `R${shipping.toLocaleString()}` : 'Free'} />
+            <div className="font-semibold text-emerald-950">Order Summary</div>
+            <div className="mt-3 space-y-2 text-sm">
+              {lines.map((line) => (
+                <div key={line.id} className="flex items-center justify-between">
+                  <div className="text-emerald-900/80">
+                    {line.name} × {line.qty}
+                  </div>
+                  <div className="text-emerald-950">R{line.lineTotal.toLocaleString()}</div>
+                </div>
+              ))}
+              <div className="flex items-center justify-between">
+                <div className="text-emerald-900/80">Subtotal</div>
+                <div className="text-emerald-950">R{subtotal.toLocaleString()}</div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="text-emerald-900/80">
+                  Shipping ({getShippingLabel(formData.shippingMethod)})
+                </div>
+                <div className="text-emerald-950">R{shipping.toLocaleString()}</div>
+              </div>
               <div className="border-t pt-2 flex items-center justify-between">
-                <div className="font-semibold text-emerald-950">Total</div>
+                <div className="font-semibold text-emerald-950">Estimated Total</div>
                 <div className="font-bold text-emerald-950 text-lg">
                   R{grandTotal.toLocaleString()}
                 </div>
               </div>
             </div>
-
-            <div className="mt-4 flex items-center gap-3 text-xs text-emerald-900/70">
+            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={onPay}
+                disabled={payLoading}
+                className="relative inline-flex items-center justify-center rounded-2xl px-6 py-3 bg-emerald-600 text-white font-medium shadow hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {payLoading ? "Processing..." : "Pay Now"}
+              </button>
+              <Link
+                href="/cart"
+                className="inline-flex items-center justify-center rounded-2xl px-6 py-3 border text-emerald-950 hover:bg-emerald-50"
+              >
+                Back to Cart
+              </Link>
+            </div>
+            <div className="mt-3 text-xs text-emerald-900/70 flex items-center gap-2">
               <span className="inline-grid place-items-center w-6 h-6 rounded-full bg-emerald-100 border">
                 🔒
               </span>
-              Payments are processed securely by Paystack (ZAR).
+              Secure checkout via Paystack (ZAR)
             </div>
           </div>
         </aside>
       </div>
-
-      <style jsx>{`
-        .input-base {
-          @apply w-full rounded-2xl border px-4 py-3 bg-white shadow-sm outline-none transition
-                 focus:ring-2 focus:ring-emerald-500 placeholder:text-emerald-700/40;
-        }
-        .label {
-          @apply text-sm text-emerald-900/90 mb-1;
-        }
-        .error {
-          @apply text-xs text-amber-600 mt-1;
-        }
-      `}</style>
-    </>
+    </main>
   );
 }
 
-/* ============================================================================
-   UI bits
-============================================================================ */
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="mt-6 rounded-2xl border bg-white shadow-sm p-4 sm:p-5">
-      <div className="font-semibold text-emerald-950">{title}</div>
-      <div className="mt-3">{children}</div>
-    </div>
-  );
-}
-function Field(props: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  type?: 'text' | 'email' | 'tel';
-  placeholder?: string;
-  error?: string;
-}) {
-  const { id, label, value, onChange, type = 'text', placeholder, error } = props;
-  return (
-    <label htmlFor={id} className="block">
-      <div className="label">{label}</div>
-      <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-700/60">✦</span>
-        <input
-          id={id}
-          type={type}
-          value={value}
-          onChange={onChange}
-          placeholder={placeholder}
-          className="input-base pl-9"
-        />
-      </div>
-      {error && <div className="error">{error}</div>}
-    </label>
-  );
-}
-function TextArea(props: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  rows?: number;
-}) {
-  const { id, label, value, onChange, rows = 4 } = props;
-  return (
-    <label htmlFor={id} className="block">
-      <div className="label">{label}</div>
-      <div className="relative">
-        <span className="absolute left-3 top-3 text-emerald-700/60">✎</span>
-        <textarea id={id} value={value} onChange={onChange} rows={rows} className="input-base pl-9 resize-none" />
-      </div>
-    </label>
-  );
-}
-function RadioCard(props: {
-  checked: boolean;
-  onChange: () => void;
-  title: string;
-  subtitle: string;
-}) {
-  const { checked, onChange, title, subtitle } = props;
-  return (
-    <label
-      className={`flex-1 flex items-center gap-3 rounded-2xl border p-3 cursor-pointer transition ${
-        checked ? 'border-emerald-400 ring-2 ring-emerald-200' : 'hover:bg-emerald-50/40'
-      }`}
-    >
-      <input type="radio" className="accent-emerald-600" checked={checked} onChange={onChange} />
-      <div>
-        <div className="font-medium text-emerald-950">{title}</div>
-        <div className="text-xs text-emerald-800/80">{subtitle}</div>
-      </div>
-    </label>
-  );
-}
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-emerald-900/80">{label}</span>
-      <span className="text-emerald-950">{value}</span>
-    </div>
-  );
-}
-function Spinner() {
-  return (
-    <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-    </svg>
-  );
+/* Export default */
+export default function CheckoutPage() {
+  return <CheckoutBody />;
 }
