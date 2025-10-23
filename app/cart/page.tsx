@@ -47,6 +47,8 @@ function IconCart({ className }: { className?: string }) {
   );
 }
 
+
+
 function IconChevron({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 20" className={className} fill="currentColor" aria-hidden>
@@ -55,7 +57,7 @@ function IconChevron({ className }: { className?: string }) {
   );
 }
 
-export default function CartPage() {
+export default function CheckoutPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -212,7 +214,7 @@ export default function CartPage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white py-12">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <h1 className="text-3xl font-bold text-emerald-900 mb-8">Your Cart</h1>
+          <h1 className="text-3xl font-bold text-emerald-900 mb-8">Checkout</h1>
           <div className="animate-pulse">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-emerald-100">
               <div className="h-4 bg-emerald-100 rounded w-1/4 mb-4"></div>
@@ -266,20 +268,27 @@ export default function CartPage() {
                 <li aria-hidden className="px-1 text-emerald-700/60">
                   <IconChevron className="w-4 h-4" />
                 </li>
-                <li aria-current="page">
-                  <span className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 text-white px-3 py-1.5 text-sm shadow">
-                    <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-white/20 border border-white/30">
+                <li>
+                  <Link
+                    href="/cart"
+                    className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
+                  >
+                    <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
                       <IconCart className="w-3.5 h-3.5" />
                     </span>
-                    <span className="font-semibold">Cart</span>
-                  </span>
+                    <span className="font-medium">Cart</span>
+                  </Link>
                 </li>
+                <li aria-hidden className="px-1 text-emerald-700/60">
+                  <IconChevron className="w-4 h-4" />
+                </li>
+              
               </ol>
             </div>
           </nav>
         </motion.div>
 
-        <h1 className="text-3xl font-bold text-emerald-900 mb-8">Your Cart</h1>
+        <h1 className="text-3xl font-bold text-emerald-900 mb-8">Checkout</h1>
 
         {cartItems.length === 0 ? (
           <motion.div
