@@ -1648,51 +1648,89 @@ function NewsletterCTA() {
 }
 
 /* Footer */
-function Footer() {
+ function Footer() {
   return (
-    <footer className="bg-emerald-900 text-emerald-50 mt-10">
-      <div className="max-w-6xl mx-auto px-4 py-10 grid md:grid-cols-4 gap-6 text-sm">
-        <div>
-          <div className="flex items-center gap-2">
-            <Image src="/logo.png" width={32} height={32} className="rounded" alt="logo" />
-            <span className="font-semibold">Delightful Naturals</span>
-          </div>
-          <p className="mt-3 text-emerald-100/80">Mega Potent Hair Growth Oil & Scalp Detox Oil.</p>
-          <div className="mt-3 flex gap-3 text-xl">
-            <span>🌿</span>
-            <span>💧</span>
-            <span>✨</span>
-          </div>
+    <footer className="bg-gradient-to-t from-emerald-900 to-emerald-800 text-emerald-50 mt-10">
+      <div className="max-w-7xl mx-auto px-4 py-12 md:py-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 text-sm">
+          {/* Brand Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="flex flex-col items-center sm:items-start"
+          >
+            <div className="flex items-center gap-3">
+              <Image src="/logo.png" width={40} height={40} className="rounded-full shadow-md" alt="Delightful Naturals logo" />
+              <span className="text-xl font-bold text-emerald-100">Delightful Naturals</span>
+            </div>
+            <p className="mt-4 text-center sm:text-left text-emerald-200/80">
+              Mega Potent Hair Growth Oil & Scalp Detox Oil.
+            </p>
+            <div className="mt-4 flex gap-4 text-2xl">
+              <span className="text-emerald-300">🌿</span>
+              <span className="text-emerald-300">💧</span>
+              <span className="text-emerald-300">✨</span>
+            </div>
+          </motion.div>
+
+          {/* Quick Links Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="flex flex-col items-center sm:items-start"
+          >
+            <h3 className="font-semibold text-emerald-100 mb-4">Quick Links</h3>
+            <ul className="space-y-2">
+              <li><a href="#" className="text-emerald-200 hover:text-emerald-100 transition">Company</a></li>
+              <li><a href="#new" className="text-emerald-200 hover:text-emerald-100 transition">Products</a></li>
+              <li><a href="#best" className="text-emerald-200 hover:text-emerald-100 transition">Best Sellers</a></li>
+              <li><a href="#faqs" className="text-emerald-200 hover:text-emerald-100 transition">FAQ</a></li>
+              <li><a href="#support" className="text-emerald-200 hover:text-emerald-100 transition">Support</a></li>
+              <li><Link href="/shop" className="text-emerald-200 hover:text-emerald-100 transition">Shop</Link></li>
+            </ul>
+          </motion.div>
+
+          {/* Help Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="flex flex-col items-center sm:items-start"
+          >
+            <h3 className="font-semibold text-emerald-100 mb-4">Help</h3>
+            <ul className="space-y-2">
+              <li><a href="#faqs" className="text-emerald-200 hover:text-emerald-100 transition">FAQ</a></li>
+              <li><a href="#contact" className="text-emerald-200 hover:text-emerald-100 transition">Contact</a></li>
+              <li><Link href="/privacy" className="text-emerald-200 hover:text-emerald-100 transition">Privacy Policy</Link></li>
+              <li><Link href="/refund" className="text-emerald-200 hover:text-emerald-100 transition">Refund Policy</Link></li>
+              <li><Link href="/delivery" className="text-emerald-200 hover:text-emerald-100 transition">Delivery Policy</Link></li>
+            </ul>
+          </motion.div>
+
+          {/* Contact Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="flex flex-col items-center sm:items-start"
+          >
+            <h3 className="font-semibold text-emerald-100 mb-4">Contact</h3>
+            <p className="text-emerald-200">
+              Phone: <a href="tel:+27672943837" className="underline hover:text-emerald-100 transition">+27 67 294 3837</a>
+              <br />
+              Email: <a href="mailto:hello@delightfulnaturals.co.za" className="underline hover:text-emerald-100 transition">hello@delightfulnaturals.co.za</a>
+            </p>
+          </motion.div>
         </div>
-        <div>
-          <div className="font-semibold">Quick Links</div>
-          <ul className="mt-2 space-y-1">
-            <li><a href="#" className="hover:underline">Company</a></li>
-            <li><a href="#new" className="hover:underline">Products</a></li>
-            <li><a href="#best" className="hover:underline">Best Sellers</a></li>
-            <li><a href="#faqs" className="hover:underline">FAQ</a></li>
-            <li><a href="#support" className="hover:underline">Support</a></li>
-            <li><Link href="/shop" className="hover:underline">Shop</Link></li>
-          </ul>
-        </div>
-        <div>
-          <div className="font-semibold">Help</div>
-          <ul className="mt-2 space-y-1">
-            <li><a href="#faqs" className="hover:underline">FAQ</a></li>
-            <li><a href="#contact" className="hover:underline">Contact</a></li>
-          </ul>
-        </div>
-        <div>
-          <div className="font-semibold">Contact</div>
-          <p className="mt-2">
-            Phone: <a className="underline" href="tel:+27672943837">+27 67 294 3837</a>
-            <br />
-            Email: <a className="underline" href="mailto:hello@delightfulnaturals.co.za">hello@delightfulnaturals.co.za</a>
+
+        {/* Bottom Bar */}
+        <div className="mt-10 border-t border-emerald-700/50 pt-6 text-center text-xs text-emerald-200/80">
+          <p>
+            © {new Date().getFullYear()} Delightful Naturals. All rights reserved. | Designed with ❤️ .
           </p>
         </div>
-      </div>
-      <div className="border-t border-emerald-800 py-4 text-center text-xs text-emerald-100/80">
-        © {new Date().getFullYear()} Delightful Naturals. All rights reserved.
       </div>
     </footer>
   );
