@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -18,6 +17,43 @@ type Product = {
 };
 
 type CartItem = Product & { qty: number };
+
+// Icon Components
+function IconHome({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M3 11.5 12 4l9 7.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6 10.5V20h12v-9.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconBag({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M6 8h12l-1 12H7L6 8Z" />
+      <path d="M9 8a3 3 0 1 1 6 0" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconCart({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M3 3h2l2.5 11.5a2 2 0 0 0 2 1.5H16a2 2 0 0 0 2-1.5L20 6H6" strokeLinecap="round" />
+      <circle cx="10" cy="20" r="1" />
+      <circle cx="17" cy="20" r="1" />
+    </svg>
+  );
+}
+
+function IconChevron({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" className={className} fill="currentColor" aria-hidden>
+      <path d="M7 5l6 5-6 5V5z" />
+    </svg>
+  );
+}
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -192,6 +228,57 @@ export default function CartPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white py-12">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        {/* Breadcrumbs */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-6"
+        >
+          <nav aria-label="Breadcrumb" className="bg-gradient-to-b from-emerald-50/60 to-white border-b">
+            <div className="max-w-6xl mx-auto px-4 py-3">
+              <ol className="flex flex-wrap items-center gap-1.5">
+                <li>
+                  <Link
+                    href="/"
+                    className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
+                  >
+                    <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
+                      <IconHome className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="font-medium">Home</span>
+                  </Link>
+                </li>
+                <li aria-hidden className="px-1 text-emerald-700/60">
+                  <IconChevron className="w-4 h-4" />
+                </li>
+                <li>
+                  <Link
+                    href="/shop"
+                    className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
+                  >
+                    <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
+                      <IconBag className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="font-medium">Shop</span>
+                  </Link>
+                </li>
+                <li aria-hidden className="px-1 text-emerald-700/60">
+                  <IconChevron className="w-4 h-4" />
+                </li>
+                <li aria-current="page">
+                  <span className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 text-white px-3 py-1.5 text-sm shadow">
+                    <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-white/20 border border-white/30">
+                      <IconCart className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="font-semibold">Cart</span>
+                  </span>
+                </li>
+              </ol>
+            </div>
+          </nav>
+        </motion.div>
+
         <h1 className="text-3xl font-bold text-emerald-900 mb-8">Your Cart</h1>
 
         {cartItems.length === 0 ? (
