@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -5,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { firestore } from '../lib/firebase-client';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Define types
 type Product = {
@@ -172,14 +174,14 @@ export default function CartPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-emerald-50 py-8">
-        <div className="max-w-4xl mx-auto px-4">
+      <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white py-12">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <h1 className="text-3xl font-bold text-emerald-900 mb-8">Your Cart</h1>
           <div className="animate-pulse">
-            <div className="bg-white rounded-lg p-6 shadow-sm">
-              <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
-              <div className="h-20 bg-gray-200 rounded mb-4"></div>
-              <div className="h-20 bg-gray-200 rounded"></div>
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-emerald-100">
+              <div className="h-4 bg-emerald-100 rounded w-1/4 mb-4"></div>
+              <div className="h-20 bg-emerald-100 rounded mb-4"></div>
+              <div className="h-20 bg-emerald-100 rounded"></div>
             </div>
           </div>
         </div>
@@ -188,111 +190,149 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-emerald-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white py-12">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <h1 className="text-3xl font-bold text-emerald-900 mb-8">Your Cart</h1>
 
         {cartItems.length === 0 ? (
-          <div className="bg-white rounded-lg p-8 text-center shadow-sm">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="bg-white rounded-2xl p-8 text-center shadow-sm border border-emerald-100"
+          >
             <div className="text-6xl mb-4">🛒</div>
-            <h2 className="text-2xl font-semibold text-emerald-900 mb-4">Your cart is empty</h2>
-            <p className="text-emerald-700 mb-6">Add some products to get started!</p>
+            <h2 className="text-2xl font-semibold text-emerald-900 mb-4">Your Cart is Empty</h2>
+            <p className="text-emerald-700 mb-6">Explore our products and add something special to your cart!</p>
             <Link
               href="/shop"
-              className="inline-flex items-center justify-center rounded-lg px-6 py-3 bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition"
+              className="inline-flex items-center justify-center rounded-full px-6 py-3 bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition shadow-md"
             >
-              Continue Shopping
+              Shop Now
             </Link>
-          </div>
+          </motion.div>
         ) : (
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Cart Items */}
-            <div className="divide-y">
-              {cartItems.map((item) => (
-                <div key={item.id} className="p-6 flex items-center gap-4">
-                  <Image
-                    src={item.img}
-                    alt={item.name}
-                    width={80}
-                    height={80}
-                    className="rounded-lg object-cover"
-                  />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-emerald-900">{item.name}</h3>
-                    <p className="text-emerald-700">
-                      {item.currency} {(item.price ?? 0).toLocaleString()}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center border rounded-lg">
-                      <button
-                        onClick={() => updateQuantity(item.id, item.qty - 1)}
-                        className="w-10 h-10 flex items-center justify-center hover:bg-emerald-50 transition"
-                        disabled={item.qty <= 1}
-                      >
-                        −
-                      </button>
-                      <span className="w-12 h-10 flex items-center justify-center text-center">
-                        {item.qty}
-                      </span>
-                      <button
-                        onClick={() => updateQuantity(item.id, item.qty + 1)}
-                        className="w-10 h-10 flex items-center justify-center hover:bg-emerald-50 transition"
-                      >
-                        +
-                      </button>
-                    </div>
-
-                    <div className="w-20 text-right font-semibold text-emerald-900">
-                      {item.currency} {((item.price ?? 0) * item.qty).toLocaleString()}
-                    </div>
-
-                    <button
-                      onClick={() => removeItem(item.id)}
-                      className="w-10 h-10 flex items-center justify-center text-red-600 hover:bg-red-50 rounded transition"
-                      title="Remove item"
+            <div className="lg:col-span-2">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5 }}
+                className="bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden"
+              >
+                <AnimatePresence>
+                  {cartItems.map((item) => (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="p-4 sm:p-6 flex items-center gap-4 border-b border-emerald-100 last:border-b-0"
                     >
-                      ×
-                    </button>
-                  </div>
-                </div>
-              ))}
+                      <Image
+                        src={item.img}
+                        alt={item.name}
+                        width={80}
+                        height={80}
+                        className="rounded-xl object-contain border border-emerald-100"
+                      />
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-emerald-900 text-lg">{item.name}</h3>
+                        <p className="text-emerald-700">
+                          {item.currency} {(item.price ?? 0).toLocaleString('en-ZA')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center rounded-xl border border-emerald-200 bg-white shadow-sm">
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => updateQuantity(item.id, item.qty - 1)}
+                            className="w-10 h-10 flex items-center justify-center text-emerald-700 hover:bg-emerald-50 transition"
+                            disabled={item.qty <= 1}
+                            aria-label="Decrease quantity"
+                          >
+                            −
+                          </motion.button>
+                          <span className="w-12 h-10 flex items-center justify-center text-emerald-900 font-medium">
+                            {item.qty}
+                          </span>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => updateQuantity(item.id, item.qty + 1)}
+                            className="w-10 h-10 flex items-center justify-center text-emerald-700 hover:bg-emerald-50 transition"
+                            aria-label="Increase quantity"
+                          >
+                            +
+                          </motion.button>
+                        </div>
+                        <div className="w-20 text-right font-semibold text-emerald-900">
+                          {item.currency} {((item.price ?? 0) * item.qty).toLocaleString('en-ZA')}
+                        </div>
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => removeItem(item.id)}
+                          className="w-10 h-10 flex items-center justify-center text-red-600 hover:bg-red-50 rounded-full transition"
+                          title="Remove item"
+                          aria-label="Remove item"
+                        >
+                          ×
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </motion.div>
             </div>
 
             {/* Cart Summary */}
-            <div className="p-6 border-t bg-emerald-50">
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 sticky top-4"
+            >
+              <h2 className="text-xl font-semibold text-emerald-900 mb-4">Order Summary</h2>
               <div className="flex justify-between items-center mb-4">
-                <span className="text-emerald-700">Subtotal ({totalItems} items):</span>
-                <span className="text-xl font-semibold text-emerald-900">
-                  R {subtotal.toLocaleString()}
+                <span className="text-emerald-700">Subtotal ({totalItems} {totalItems === 1 ? 'item' : 'items'}):</span>
+                <span className="text-lg font-semibold text-emerald-900">
+                  R {subtotal.toLocaleString('en-ZA')}
                 </span>
               </div>
-
-              <div className="flex gap-3">
-                <button
+              <div className="border-t border-emerald-100 pt-4 mb-4">
+                <p className="text-sm text-emerald-600 flex items-center gap-2">
+                  <span className="text-base">🚚</span> Free shipping on orders over R500
+                </p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={clearCart}
-                  className="flex-1 py-3 px-6 border border-emerald-200 text-emerald-700 rounded-lg hover:bg-white transition"
+                  className="w-full py-3 px-6 border border-emerald-200 text-emerald-700 rounded-full hover:bg-emerald-50 transition font-medium"
                 >
                   Clear Cart
-                </button>
+                </motion.button>
                 <Link
                   href="/checkout"
-                  className="flex-1 py-3 px-6 bg-emerald-600 text-white text-center rounded-lg hover:bg-emerald-700 transition font-medium"
+                  className="w-full py-3 px-6 bg-emerald-600 text-white text-center rounded-full hover:bg-emerald-700 transition font-medium shadow-md"
                 >
                   Proceed to Checkout
                 </Link>
               </div>
-
               <div className="mt-4 text-center">
                 <Link
                   href="/shop"
-                  className="text-emerald-600 hover:text-emerald-700 underline"
+                  className="text-emerald-600 hover:text-emerald-700 underline text-sm"
                 >
                   Continue Shopping
                 </Link>
               </div>
-            </div>
+            </motion.div>
           </div>
         )}
       </div>
