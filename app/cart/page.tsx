@@ -1,9 +1,10 @@
-// app/cart/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { firestore } from '../lib/firebase-client';
 
 // Define types
 type Product = {
@@ -23,9 +24,18 @@ export default function CartPage() {
   // Load cart items on component mount
   useEffect(() => {
     loadCartItems();
+
+    // Listen for cart updates
+    const handleCartUpdate = () => {
+      loadCartItems();
+    };
+    window.addEventListener('cartUpdated', handleCartUpdate);
+    return () => {
+      window.removeEventListener('cartUpdated', handleCartUpdate);
+    };
   }, []);
 
-  const loadCartItems = () => {
+  const loadCartItems = async () => {
     try {
       const userId = localStorage.getItem('cart-user-id');
       if (!userId) {
@@ -34,14 +44,43 @@ export default function CartPage() {
         return;
       }
 
-      // Try Firestore structure first
+      // Try Firestore first
+      const docRef = doc(firestore, `carts/${userId}`);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const firestoreData = docSnap.data();
+        if (firestoreData && Array.isArray(firestoreData.items)) {
+          const cartItems = firestoreData.items.map((item: { id: string; qty: number }) => ({
+            id: item.id,
+            name: `Product ${item.id}`,
+            price: item.id === 'growth-100' ? 300 : 260,
+            currency: 'R',
+            img: '/products/hair-growth-oil-100ml.png',
+            qty: item.qty,
+          }));
+          setCartItems(cartItems);
+          // Update localStorage to sync
+          localStorage.setItem(`firestore:cart:${userId}`, JSON.stringify({ userId, items: firestoreData.items, updatedAt: Date.now() }));
+          localStorage.setItem('dn-cart', JSON.stringify(firestoreData.items));
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Fallback to localStorage Firestore structure
       const firestoreData = localStorage.getItem(`firestore:cart:${userId}`);
       if (firestoreData) {
         const parsed = JSON.parse(firestoreData);
         if (parsed && Array.isArray(parsed.items)) {
-          // You would need to fetch product details from your CATALOG here
-          // For now, we'll use the stored items as-is
-          setCartItems(parsed.items as CartItem[]);
+          const cartItems = parsed.items.map((item: { id: string; qty: number }) => ({
+            id: item.id,
+            name: `Product ${item.id}`,
+            price: item.id === 'growth-100' ? 300 : 260,
+            currency: 'R',
+            img: '/products/hair-growth-oil-100ml.png',
+            qty: item.qty,
+          }));
+          setCartItems(cartItems);
           setLoading(false);
           return;
         }
@@ -51,16 +90,17 @@ export default function CartPage() {
       const legacyData = localStorage.getItem('dn-cart');
       if (legacyData) {
         const items = JSON.parse(legacyData) as Array<{ id: string; qty: number }>;
-        // Convert to CartItem format - you'll need to fetch product details
-        const cartItems = items.map(item => ({
+        const cartItems = items.map((item) => ({
           id: item.id,
           name: `Product ${item.id}`,
           price: item.id === 'growth-100' ? 300 : 260,
           currency: 'R',
           img: '/products/hair-growth-oil-100ml.png',
-          qty: item.qty
+          qty: item.qty,
         }));
         setCartItems(cartItems);
+      } else {
+        setCartItems([]);
       }
     } catch (error) {
       console.error('Error loading cart:', error);
@@ -73,7 +113,7 @@ export default function CartPage() {
   const updateQuantity = (id: string, newQty: number) => {
     if (newQty < 1) return;
 
-    const updatedItems = cartItems.map(item =>
+    const updatedItems = cartItems.map((item) =>
       item.id === id ? { ...item, qty: newQty } : item
     );
     setCartItems(updatedItems);
@@ -81,22 +121,26 @@ export default function CartPage() {
   };
 
   const removeItem = (id: string) => {
-    const updatedItems = cartItems.filter(item => item.id !== id);
+    const updatedItems = cartItems.filter((item) => item.id !== id);
     setCartItems(updatedItems);
     saveCart(updatedItems);
   };
 
-  const saveCart = (items: CartItem[]) => {
+  const saveCart = async (items: CartItem[]) => {
     try {
       const userId = localStorage.getItem('cart-user-id');
       if (!userId) return;
 
-      const storedItems = items.map(item => ({
+      const storedItems = items.map((item) => ({
         id: item.id,
-        qty: item.qty
+        qty: item.qty,
       }));
 
-      // Save in both formats for compatibility
+      // Save to Firestore
+      const docRef = doc(firestore, `carts/${userId}`);
+      await setDoc(docRef, { items: storedItems, updatedAt: Date.now() }, { merge: true });
+
+      // Save to localStorage for compatibility
       const firestoreData = { userId, items: storedItems, updatedAt: Date.now() };
       localStorage.setItem(`firestore:cart:${userId}`, JSON.stringify(firestoreData));
       localStorage.setItem('dn-cart', JSON.stringify(storedItems));
@@ -108,12 +152,13 @@ export default function CartPage() {
     }
   };
 
-  const clearCart = () => {
+  const clearCart = async () => {
     setCartItems([]);
     try {
       const userId = localStorage.getItem('cart-user-id');
       if (userId) {
         localStorage.removeItem(`firestore:cart:${userId}`);
+        await setDoc(doc(firestore, `carts/${userId}`), { items: [], updatedAt: Date.now() }, { merge: true });
       }
       localStorage.removeItem('dn-cart');
       window.dispatchEvent(new Event('cartUpdated'));
@@ -122,7 +167,7 @@ export default function CartPage() {
     }
   };
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  const subtotal = cartItems.reduce((sum, item) => sum + ((item.price ?? 0) * item.qty), 0);
   const totalItems = cartItems.reduce((sum, item) => sum + item.qty, 0);
 
   if (loading) {
@@ -172,11 +217,10 @@ export default function CartPage() {
                     height={80}
                     className="rounded-lg object-cover"
                   />
-                  
                   <div className="flex-1">
                     <h3 className="font-semibold text-emerald-900">{item.name}</h3>
                     <p className="text-emerald-700">
-                      {item.currency} {item.price.toLocaleString()}
+                      {item.currency} {(item.price ?? 0).toLocaleString()}
                     </p>
                   </div>
 
@@ -201,7 +245,7 @@ export default function CartPage() {
                     </div>
 
                     <div className="w-20 text-right font-semibold text-emerald-900">
-                      {item.currency} {(item.price * item.qty).toLocaleString()}
+                      {item.currency} {((item.price ?? 0) * item.qty).toLocaleString()}
                     </div>
 
                     <button
@@ -232,7 +276,6 @@ export default function CartPage() {
                 >
                   Clear Cart
                 </button>
-                
                 <Link
                   href="/checkout"
                   className="flex-1 py-3 px-6 bg-emerald-600 text-white text-center rounded-lg hover:bg-emerald-700 transition font-medium"
@@ -256,6 +299,3 @@ export default function CartPage() {
     </div>
   );
 }
-
-// Remove any export that's not default, metadata, or generateMetadata
-// If you need the clear cart functionality, make it a regular function inside the component

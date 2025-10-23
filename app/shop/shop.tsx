@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-
 import { v4 as uuidv4 } from 'uuid';
 import { firestore } from '../lib/firebase-client';
 
@@ -217,6 +216,11 @@ async function writeCart(userId: string, items: CartRow[]): Promise<void> {
     }
     console.log('writeCart: userId:', userId, 'token:', token, 'items:', items);
     await setDoc(docRef, { items, updatedAt: Date.now(), token }, { merge: true });
+
+    // Update localStorage to sync with cart page
+    const firestoreData = { userId, items, updatedAt: Date.now(), token };
+    localStorage.setItem(`firestore:cart:${userId}`, JSON.stringify(firestoreData));
+    localStorage.setItem('dn-cart', JSON.stringify(items));
   } catch (err) {
     console.error('Error writing cart:', err);
     throw err;
@@ -318,7 +322,9 @@ function ShopProductSectionInner() {
       setTimeout(() => setCelebrate(false), 9200);
       toast({ title: 'Added to cart', description: `Added ${addQty} × ${product.name} to cart.` });
       try {
+        // Dispatch both events for compatibility
         window.dispatchEvent(new CustomEvent('cart:add', { detail: { id: product.id, qty: addQty } }));
+        window.dispatchEvent(new Event('cartUpdated'));
       } catch {}
     } catch (err) {
       console.error('addToCart error:', err);
