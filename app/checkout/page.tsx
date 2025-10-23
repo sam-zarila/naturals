@@ -402,10 +402,11 @@ function CheckoutBody(): JSX.Element {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    if (!userId || !items.length) {
+    // Removed the !items.length check to allow payment even if cart is empty
+    if (!userId) {
       toast({
         title: "Error",
-        description: "Cart is empty or user not identified.",
+        description: "User not identified.",
         variant: "destructive",
       });
       return;
@@ -503,39 +504,10 @@ function CheckoutBody(): JSX.Element {
     }
   }, [userId, items, lines, subtotal, shipping, grandTotal, formData, toast]);
 
-  // Check if cart is empty
-  useEffect(() => {
-    if (items.length === 0 && !loading) {
-      toast({
-        title: "Cart is empty",
-        description: "Please add items to your cart before checkout.",
-        variant: "destructive",
-      });
-      // Redirect to shop after a short delay
-      const timer = setTimeout(() => {
-        router.push("/shop");
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [items, loading, toast, router]);
-
   if (loading) {
     return (
       <main className="bg-white min-h-screen flex items-center justify-center">
         <div className="text-center">Loading checkout...</div>
-      </main>
-    );
-  }
-
-  if (items.length === 0 && !loading) {
-    return (
-      <main className="bg-white min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-600 mb-4">Your cart is empty</div>
-          <Link href="/shop" className="text-emerald-700 underline">
-            Continue shopping
-          </Link>
-        </div>
       </main>
     );
   }
