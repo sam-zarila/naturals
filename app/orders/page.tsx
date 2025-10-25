@@ -58,7 +58,15 @@ function IconChevron({ className }: { className?: string }) {
 /* ============================================================================
    Catalog
 ============================================================================ */
-const CATALOG = {
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  currency: string;
+  img: string;
+}
+
+const CATALOG: Record<string, Product> = {
   "growth-100": {
     id: "growth-100",
     name: "Hair Growth Oil · 100ml",
