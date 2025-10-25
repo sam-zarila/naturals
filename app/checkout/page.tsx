@@ -5,7 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { doc, getDoc, setDoc, collection, addDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, addDoc } from "firebase/firestore";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, User } from "firebase/auth";
 import { v4 as uuidv4 } from "uuid";
 import { firestore } from "../lib/firebase-client";
 
@@ -130,7 +131,7 @@ interface CheckoutPayload {
   name?: string;
   phone?: string;
   cart?: Array<{ id: string; name: string; price: number; qty: number }>;
-}
+};
 
 interface PaystackInitResponse {
   authorization_url: string;
@@ -240,7 +241,6 @@ async function clearCartAfterCheckout(userId: string): Promise<void> {
       localStorage.setItem("cart-token", token);
     }
     
-    console.log('clearCartAfterCheckout: userId:', userId, 'token:', token);
     await setDoc(docRef, { items: [], updatedAt: Date.now(), token }, { merge: true });
     
     // Also update localStorage to reflect empty cart
@@ -255,9 +255,10 @@ async function clearCartAfterCheckout(userId: string): Promise<void> {
 }
 
 /* ============================================================================
-   Courier Services
+   Shipping Options
 ============================================================================ */
-const COURIER_SERVICES = [
+const SHIPPING_OPTIONS = [
+  { value: "self-pickup", label: "Self Pickup" },
   { value: "the-courier-guy", label: "The Courier Guy" },
   { value: "dhl-express", label: "DHL Express" },
   { value: "fedex", label: "FedEx" },
@@ -284,56 +285,298 @@ const PROVINCES = [
 ] as const;
 
 /* ============================================================================
-   Checkout Component
+   Auth Modal Component - Non-dismissible
+============================================================================ */
+function AuthModal({ onClose, initialLogin = true }: { onClose: () => void; initialLogin?: boolean }) {
+  const { toast } = useToast();
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [isLogin, setIsLogin] = useState(initialLogin);
+  const [authLoading, setAuthLoading] = useState(false);
+  const auth = getAuth(firestore.app);
+
+  const handleAuth = async () => {
+    if (!authEmail || !authPassword) {
+      toast({
+        title: "Error",
+        description: "Please enter email and password.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      if (isLogin) {
+        await signInWithEmailAndPassword(auth, authEmail, authPassword);
+        toast({
+          title: "Success",
+          description: "Logged in successfully.",
+        });
+      } else {
+        await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+        toast({
+          title: "Success",
+          description: "Registration successful.",
+        });
+      }
+      setAuthEmail("");
+      setAuthPassword("");
+      onClose();
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Authentication failed.",
+        variant: "destructive",
+      });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    setAuthLoading(true);
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+      toast({
+        title: "Success",
+        description: "Logged in with Google.",
+      });
+      onClose();
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Google authentication failed.",
+        variant: "destructive",
+      });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleAuth();
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      // Remove backdrop click handler to prevent closing
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-bold text-emerald-950">
+            {isLogin ? "Log In Required" : "Sign Up Required"}
+          </h2>
+          {/* Remove close button to prevent closing without authentication */}
+        </div>
+        <p className="text-emerald-900/70 mb-6">
+          You must {isLogin ? "log in" : "sign up"} to proceed with checkout and track your orders.
+        </p>
+        <div className="space-y-4" onKeyPress={handleKeyPress}>
+          <div>
+            <label htmlFor="auth-email" className="block text-sm font-medium text-emerald-950">
+              Email
+            </label>
+            <input
+              id="auth-email"
+              type="email"
+              value={authEmail}
+              onChange={(e) => setAuthEmail(e.target.value)}
+              className="mt-1 block w-full rounded-xl border border-neutral-200 p-2 text-sm"
+              placeholder="Enter your email"
+            />
+          </div>
+          <div>
+            <label htmlFor="auth-password" className="block text-sm font-medium text-emerald-950">
+              Password
+            </label>
+            <input
+              id="auth-password"
+              type="password"
+              value={authPassword}
+              onChange={(e) => setAuthPassword(e.target.value)}
+              className="mt-1 block w-full rounded-xl border border-neutral-200 p-2 text-sm"
+              placeholder="Enter your password"
+            />
+          </div>
+          <button
+            onClick={handleAuth}
+            disabled={authLoading}
+            className="w-full rounded-2xl px-6 py-3 bg-emerald-600 text-white font-medium shadow hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {authLoading ? "Processing..." : isLogin ? "Log In" : "Sign Up"}
+          </button>
+          <button
+            onClick={() => setIsLogin(!isLogin)}
+            className="w-full text-sm text-emerald-700 hover:underline"
+          >
+            {isLogin ? "Need an account? Sign up" : "Have an account? Log in"}
+          </button>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-neutral-200" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-neutral-500">Or continue with</span>
+            </div>
+          </div>
+          <button
+            onClick={handleGoogle}
+            disabled={authLoading}
+            className="w-full rounded-2xl px-6 py-3 border border-neutral-200 text-emerald-950 hover:bg-emerald-50 flex items-center justify-center gap-2"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Log in with Google
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/* ============================================================================
+   Checkout Component - Enforces Authentication
 ============================================================================ */
 function CheckoutBody(): JSX.Element {
+  const auth = getAuth(firestore.app);
   const { toast, toasts } = useToast();
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [items, setItems] = useState<StoredCartItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [payLoading, setPayLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Form handling
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    address1: "",
+    address2: "",
+    city: "",
+    province: "",
+    postalCode: "",
+    notes: "",
+    shippingMethod: "",
+  });
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof typeof formData, string>>>({});
 
   // Shipping cost (fixed for small packages in SA)
-  const shipping = 100;
+  const shipping = formData.shippingMethod === "self-pickup" ? 0 : 100;
   const getShippingLabel = (method: string) => {
-    const service = COURIER_SERVICES.find(s => s.value === method);
+    const service = SHIPPING_OPTIONS.find(s => s.value === method);
     return service ? service.label : 'Standard';
   };
 
-  // Initialize userId and fetch cart
+  // Initialize auth state and enforce authentication
   useEffect(() => {
-    const id = getUserId();
-    setUserId(id);
     setLoading(true);
-    readCart(id)
-      .then((cart) => {
-        setItems(cart);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setCurrentUser(user);
+      let localId = localStorage.getItem(USER_ID_KEY);
+      
+      if (!user) {
+        // No user is authenticated - show auth modal and prevent proceeding
+        setShowAuthModal(true);
+        setAuthChecked(true);
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Cart load error:", err);
+        return;
+      }
+
+      // User is authenticated - proceed with cart operations
+      if (!localId) {
+        localId = uuidv4();
+        localStorage.setItem(USER_ID_KEY, localId);
+      }
+      
+      let id = user.uid;
+      
+      try {
+        // Merge carts if necessary
+        if (user.uid !== localId) {
+          const anonItems = await readCart(localId);
+          const authItems = await readCart(user.uid);
+          const mergedMap = new Map<string, StoredCartItem>();
+          [...authItems, ...anonItems].forEach((item) => {
+            const existing = mergedMap.get(item.id);
+            if (existing) {
+              existing.qty += item.qty;
+            } else {
+              mergedMap.set(item.id, { ...item });
+            }
+          });
+          const merged = Array.from(mergedMap.values());
+          await writeCart(user.uid, merged);
+          await writeCart(localId, []);
+          localStorage.setItem(USER_ID_KEY, user.uid);
+          setItems(merged);
+        } else {
+          const cartItems = await readCart(user.uid);
+          setItems(cartItems);
+        }
+
+        // Prefill form data from user profile
+        const displayName = user.displayName || "";
+        const [firstName, ...lastParts] = displayName.split(" ");
+        const lastName = lastParts.join(" ");
+        const phone = user.phoneNumber || "";
+        setFormData((prev) => ({
+          ...prev,
+          firstName: prev.firstName || firstName,
+          lastName: prev.lastName || lastName,
+          email: prev.email || user.email || "",
+          phone: prev.phone || phone,
+        }));
+
+        setUserId(id);
+        setShowAuthModal(false);
+      } catch (err) {
+        console.error("Cart operation error:", err);
         toast({
           title: "Error",
-          description: `Failed to load cart: ${err instanceof Error ? err.message : "Unknown error"}`,
+          description: "Failed to load cart.",
           variant: "destructive",
         });
+      } finally {
+        setAuthChecked(true);
         setLoading(false);
-      });
+      }
+    });
+    
+    return unsubscribe;
   }, [toast]);
 
   // Listen for cart updates from other components
   useEffect(() => {
-    const handleCartUpdate = (event: CustomEvent) => {
-      if (event.detail && Array.isArray(event.detail.items)) {
-        setItems(event.detail.items);
+    const handleCartUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent<{ items: StoredCartItem[] }>;
+      if (customEvent.detail && Array.isArray(customEvent.detail.items)) {
+        setItems(customEvent.detail.items);
       }
     };
-
-    window.addEventListener("cartUpdated", handleCartUpdate as EventListener);
-    
+    window.addEventListener("cartUpdated", handleCartUpdate);
     return () => {
-      window.removeEventListener("cartUpdated", handleCartUpdate as EventListener);
+      window.removeEventListener("cartUpdated", handleCartUpdate);
     };
   }, []);
 
@@ -352,22 +595,6 @@ function CheckoutBody(): JSX.Element {
   const subtotal = useMemo(() => lines.reduce((sum, l) => sum + l.lineTotal, 0), [lines]);
   const grandTotal = subtotal + shipping;
 
-  // Form handling
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    address1: "",
-    address2: "",
-    city: "",
-    province: "",
-    postalCode: "",
-    notes: "",
-    shippingMethod: "",
-  });
-  const [formErrors, setFormErrors] = useState<Partial<Record<keyof typeof formData, string>>>({});
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -382,17 +609,29 @@ function CheckoutBody(): JSX.Element {
       errors.email = "Valid email is required";
     if (!formData.phone.trim() || !/^\d{10,}$/.test(formData.phone))
       errors.phone = "Valid phone number is required (10+ digits)";
-    if (!formData.address1.trim()) errors.address1 = "Address is required";
-    if (!formData.city.trim()) errors.city = "City is required";
-    if (!formData.province) errors.province = "Province is required";
-    if (!formData.postalCode.trim()) errors.postalCode = "Postal code is required";
     if (!formData.shippingMethod) errors.shippingMethod = "Shipping method is required";
+    if (formData.shippingMethod !== "self-pickup") {
+      if (!formData.address1.trim()) errors.address1 = "Address is required";
+      if (!formData.city.trim()) errors.city = "City is required";
+      if (!formData.province) errors.province = "Province is required";
+      if (!formData.postalCode.trim()) errors.postalCode = "Postal code is required";
+    }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  // Payment handler
+  // Payment handler - requires authentication
   const onPay = useCallback(async () => {
+    if (!currentUser) {
+      setShowAuthModal(true);
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to complete your purchase.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!validateForm()) {
       toast({
         title: "Error",
@@ -402,7 +641,7 @@ function CheckoutBody(): JSX.Element {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    // Removed the !items.length check to allow payment even if cart is empty
+
     if (!userId) {
       toast({
         title: "Error",
@@ -429,21 +668,20 @@ function CheckoutBody(): JSX.Element {
           name: `${formData.firstName} ${formData.lastName}`,
           email: formData.email,
           phone: formData.phone,
-          shipping: "courier",
-          address: {
+          shipping: formData.shippingMethod === "self-pickup" ? "self-pickup" : "courier",
+          address: formData.shippingMethod !== "self-pickup" ? {
             line1: formData.address1,
             line2: formData.address2 || "",
             city: formData.city,
             province: formData.province,
             postalCode: formData.postalCode,
-          },
+          } : null,
           notes: formData.notes || "",
         },
         shippingMethod: formData.shippingMethod,
         createdAt: new Date(),
       };
       
-      console.log("Creating order:", orderData);
       const orderDoc = await addDoc(ordersRef, orderData);
       const orderId = orderDoc.id;
 
@@ -475,7 +713,6 @@ function CheckoutBody(): JSX.Element {
         } catch {
           errorText = 'No response text';
         }
-        console.error('API Error Response:', errorText);
         throw new Error(`Payment initiation failed: ${res.status} - ${errorText || 'Unknown error'}`);
       }
 
@@ -502,19 +739,146 @@ function CheckoutBody(): JSX.Element {
     } finally {
       setPayLoading(false);
     }
-  }, [userId, items, lines, subtotal, shipping, grandTotal, formData, toast]);
+  }, [currentUser, userId, items, lines, subtotal, shipping, grandTotal, formData, toast]);
 
+  // Show loading state
   if (loading) {
     return (
       <main className="bg-white min-h-screen flex items-center justify-center">
-        <div className="text-center">Loading checkout...</div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+          <p className="mt-4 text-emerald-900">Loading checkout...</p>
+        </div>
       </main>
     );
   }
 
+  // Show authentication required state
+  if (!currentUser && authChecked) {
+    return (
+      <main className="bg-white min-h-screen">
+        <ToastComponent toasts={toasts} />
+        <AnimatePresence>
+          {showAuthModal && <AuthModal onClose={() => {}} />}
+        </AnimatePresence>
+        
+        {/* Breadcrumbs */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-6"
+        >
+          <nav aria-label="Breadcrumb" className="bg-gradient-to-b from-emerald-50/60 to-white border-b">
+            <div className="max-w-6xl mx-auto px-4 py-3">
+              <ol className="flex flex-wrap items-center gap-1.5">
+                <li>
+                  <Link
+                    href="/"
+                    className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
+                  >
+                    <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
+                      <IconHome className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="font-medium">Home</span>
+                  </Link>
+                </li>
+                <li aria-hidden className="px-1 text-emerald-700/60">
+                  <IconChevron className="w-4 h-4" />
+                </li>
+                <li>
+                  <Link
+                    href="/shop"
+                    className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
+                  >
+                    <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
+                      <IconBag className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="font-medium">Shop</span>
+                  </Link>
+                </li>
+                <li aria-hidden className="px-1 text-emerald-700/60">
+                  <IconChevron className="w-4 h-4" />
+                </li>
+                <li>
+                  <Link
+                    href="/cart"
+                    className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
+                  >
+                    <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
+                      <IconCart className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="font-medium">Cart</span>
+                  </Link>
+                </li>
+                <li aria-hidden className="px-1 text-emerald-700/60">
+                  <IconChevron className="w-4 h-4" />
+                </li>
+                <li aria-current="page">
+                  <span className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 text-white px-3 py-1.5 text-sm shadow">
+                    <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-white/20 border border-white/30">
+                      <IconCheckout className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="font-semibold">Checkout</span>
+                  </span>
+                </li>
+              </ol>
+            </div>
+          </nav>
+        </motion.div>
+
+        {/* Header */}
+        <div className="border-b">
+          <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-2">
+              <Image
+                src="/logo.png"
+                alt="Delightful Naturals"
+                width={32}
+                height={32}
+                className="rounded"
+              />
+              <span className="font-semibold text-emerald-900">Delightful Naturals</span>
+            </Link>
+            <Link href="/cart" className="text-sm text-emerald-700 hover:underline">
+              Back to cart
+            </Link>
+          </div>
+        </div>
+
+        {/* Authentication Required Message */}
+        <div className="max-w-6xl mx-auto px-4 py-16 text-center">
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8 max-w-md mx-auto">
+            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">🔒</span>
+            </div>
+            <h2 className="text-2xl font-bold text-amber-900 mb-2">Authentication Required</h2>
+            <p className="text-amber-800 mb-6">
+              Please log in or create an account to proceed with your purchase.
+            </p>
+            <p className="text-sm text-amber-700 mb-4">
+              The authentication modal should appear automatically. If it does not, please refresh the page.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="text-sm text-amber-700 hover:underline"
+            >
+              Refresh page
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // Normal checkout flow for authenticated users
   return (
     <main className="bg-white min-h-screen">
       <ToastComponent toasts={toasts} />
+      <AnimatePresence>
+        {showAuthModal && <AuthModal onClose={() => {}} />}
+      </AnimatePresence>
+      
       {/* Breadcrumbs */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -593,9 +957,14 @@ function CheckoutBody(): JSX.Element {
             />
             <span className="font-semibold text-emerald-900">Delightful Naturals</span>
           </Link>
-          <Link href="/cart" className="text-sm text-emerald-700 hover:underline">
-            Back to cart
-          </Link>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-emerald-700">
+              Welcome, {currentUser?.displayName || currentUser?.email}
+            </span>
+            <Link href="/cart" className="text-sm text-emerald-700 hover:underline">
+              Back to cart
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -605,13 +974,19 @@ function CheckoutBody(): JSX.Element {
         <section className="lg:col-span-3">
           <h1 className="text-3xl font-bold text-emerald-950">Checkout</h1>
           <p className="text-emerald-900/70 mt-1">Enter your details to complete your order.</p>
+          <div className="mt-2 flex items-center gap-2 text-sm text-emerald-700">
+            <span className="inline-grid place-items-center w-5 h-5 rounded-full bg-emerald-100">
+              ✓
+            </span>
+            Authenticated as {currentUser?.email}
+          </div>
 
           <div className="mt-4 rounded-2xl border bg-white shadow-sm p-4 sm:p-5">
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="firstName" className="block text-sm font-medium text-emerald-950">
-                    First Name
+                    First Name *
                   </label>
                   <input
                     id="firstName"
@@ -622,6 +997,7 @@ function CheckoutBody(): JSX.Element {
                     className={`mt-1 block w-full rounded-xl border ${
                       formErrors.firstName ? "border-red-500" : "border-neutral-200"
                     } p-2 text-sm`}
+                    placeholder="Enter your first name"
                   />
                   {formErrors.firstName && (
                     <p className="mt-1 text-xs text-red-600">{formErrors.firstName}</p>
@@ -629,7 +1005,7 @@ function CheckoutBody(): JSX.Element {
                 </div>
                 <div>
                   <label htmlFor="lastName" className="block text-sm font-medium text-emerald-950">
-                    Last Name
+                    Last Name *
                   </label>
                   <input
                     id="lastName"
@@ -640,6 +1016,7 @@ function CheckoutBody(): JSX.Element {
                     className={`mt-1 block w-full rounded-xl border ${
                       formErrors.lastName ? "border-red-500" : "border-neutral-200"
                     } p-2 text-sm`}
+                    placeholder="Enter your last name"
                   />
                   {formErrors.lastName && (
                     <p className="mt-1 text-xs text-red-600">{formErrors.lastName}</p>
@@ -648,7 +1025,7 @@ function CheckoutBody(): JSX.Element {
               </div>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-emerald-950">
-                  Email
+                  Email *
                 </label>
                 <input
                   id="email"
@@ -659,6 +1036,7 @@ function CheckoutBody(): JSX.Element {
                   className={`mt-1 block w-full rounded-xl border ${
                     formErrors.email ? "border-red-500" : "border-neutral-200"
                   } p-2 text-sm`}
+                  placeholder="Enter your email"
                 />
                 {formErrors.email && (
                   <p className="mt-1 text-xs text-red-600">{formErrors.email}</p>
@@ -666,7 +1044,7 @@ function CheckoutBody(): JSX.Element {
               </div>
               <div>
                 <label htmlFor="phone" className="block text-sm font-medium text-emerald-950">
-                  Phone
+                  Phone *
                 </label>
                 <input
                   id="phone"
@@ -677,126 +1055,138 @@ function CheckoutBody(): JSX.Element {
                   className={`mt-1 block w-full rounded-xl border ${
                     formErrors.phone ? "border-red-500" : "border-neutral-200"
                   } p-2 text-sm`}
+                  placeholder="Enter your phone number"
                 />
                 {formErrors.phone && <p className="mt-1 text-xs text-red-600">{formErrors.phone}</p>}
               </div>
               <div>
-                <label htmlFor="address1" className="block text-sm font-medium text-emerald-950">
-                  Address Line 1
+                <label htmlFor="shippingMethod" className="block text-sm font-medium text-emerald-950">
+                  Shipping Method *
                 </label>
-                <input
-                  id="address1"
-                  name="address1"
-                  type="text"
-                  value={formData.address1}
+                <select
+                  id="shippingMethod"
+                  name="shippingMethod"
+                  value={formData.shippingMethod}
                   onChange={handleInputChange}
                   className={`mt-1 block w-full rounded-xl border ${
-                    formErrors.address1 ? "border-red-500" : "border-neutral-200"
+                    formErrors.shippingMethod ? "border-red-500" : "border-neutral-200"
                   } p-2 text-sm`}
-                />
-                {formErrors.address1 && (
-                  <p className="mt-1 text-xs text-red-600">{formErrors.address1}</p>
+                >
+                  <option value="">Select shipping method</option>
+                  {SHIPPING_OPTIONS.map((service) => (
+                    <option key={service.value} value={service.value}>
+                      {service.label}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.shippingMethod && (
+                  <p className="mt-1 text-xs text-red-600">{formErrors.shippingMethod}</p>
                 )}
               </div>
-              <div>
-                <label htmlFor="address2" className="block text-sm font-medium text-emerald-950">
-                  Address Line 2 (Optional)
-                </label>
-                <input
-                  id="address2"
-                  name="address2"
-                  type="text"
-                  value={formData.address2}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-xl border border-neutral-200 p-2 text-sm"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="city" className="block text-sm font-medium text-emerald-950">
-                    City
-                  </label>
-                  <input
-                    id="city"
-                    name="city"
-                    type="text"
-                    value={formData.city}
-                    onChange={handleInputChange}
-                    className={`mt-1 block w-full rounded-xl border ${
-                      formErrors.city ? "border-red-500" : "border-neutral-200"
-                    } p-2 text-sm`}
-                  />
-                  {formErrors.city && <p className="mt-1 text-xs text-red-600">{formErrors.city}</p>}
+              {formData.shippingMethod === "self-pickup" && (
+                <div className="p-4 rounded-lg bg-emerald-50 text-emerald-800 text-sm">
+                  Self pickup is available at our store in Johannesburg. Please contact us for the exact address and pickup times.
                 </div>
-                <div>
-                  <label htmlFor="province" className="block text-sm font-medium text-emerald-950">
-                    Province
-                  </label>
-                  <select
-                    id="province"
-                    name="province"
-                    value={formData.province}
-                    onChange={handleInputChange}
-                    className={`mt-1 block w-full rounded-xl border ${
-                      formErrors.province ? "border-red-500" : "border-neutral-200"
-                    } p-2 text-sm`}
-                  >
-                    <option value="">Select province</option>
-                    {PROVINCES.map((prov) => (
-                      <option key={prov.value} value={prov.value}>
-                        {prov.label}
-                      </option>
-                    ))}
-                  </select>
-                  {formErrors.province && (
-                    <p className="mt-1 text-xs text-red-600">{formErrors.province}</p>
-                  )}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="postalCode" className="block text-sm font-medium text-emerald-950">
-                    Postal Code
-                  </label>
-                  <input
-                    id="postalCode"
-                    name="postalCode"
-                    type="text"
-                    value={formData.postalCode}
-                    onChange={handleInputChange}
-                    className={`mt-1 block w-full rounded-xl border ${
-                      formErrors.postalCode ? "border-red-500" : "border-neutral-200"
-                    } p-2 text-sm`}
-                  />
-                  {formErrors.postalCode && (
-                    <p className="mt-1 text-xs text-red-600">{formErrors.postalCode}</p>
-                  )}
-                </div>
-                <div>
-                  <label htmlFor="shippingMethod" className="block text-sm font-medium text-emerald-950">
-                    Shipping Method
-                  </label>
-                  <select
-                    id="shippingMethod"
-                    name="shippingMethod"
-                    value={formData.shippingMethod}
-                    onChange={handleInputChange}
-                    className={`mt-1 block w-full rounded-xl border ${
-                      formErrors.shippingMethod ? "border-red-500" : "border-neutral-200"
-                    } p-2 text-sm`}
-                  >
-                    <option value="">Select shipping method</option>
-                    {COURIER_SERVICES.map((service) => (
-                      <option key={service.value} value={service.value}>
-                        {service.label}
-                      </option>
-                    ))}
-                  </select>
-                  {formErrors.shippingMethod && (
-                    <p className="mt-1 text-xs text-red-600">{formErrors.shippingMethod}</p>
-                  )}
-                </div>
-              </div>
+              )}
+              {formData.shippingMethod && formData.shippingMethod !== "self-pickup" && (
+                <>
+                  <div>
+                    <label htmlFor="address1" className="block text-sm font-medium text-emerald-950">
+                      Address Line 1 *
+                    </label>
+                    <input
+                      id="address1"
+                      name="address1"
+                      type="text"
+                      value={formData.address1}
+                      onChange={handleInputChange}
+                      className={`mt-1 block w-full rounded-xl border ${
+                        formErrors.address1 ? "border-red-500" : "border-neutral-200"
+                      } p-2 text-sm`}
+                      placeholder="Enter your street address"
+                    />
+                    {formErrors.address1 && (
+                      <p className="mt-1 text-xs text-red-600">{formErrors.address1}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="address2" className="block text-sm font-medium text-emerald-950">
+                      Address Line 2 (Optional)
+                    </label>
+                    <input
+                      id="address2"
+                      name="address2"
+                      type="text"
+                      value={formData.address2}
+                      onChange={handleInputChange}
+                      className="mt-1 block w-full rounded-xl border border-neutral-200 p-2 text-sm"
+                      placeholder="Apartment, suite, unit, etc."
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="city" className="block text-sm font-medium text-emerald-950">
+                        City *
+                      </label>
+                      <input
+                        id="city"
+                        name="city"
+                        type="text"
+                        value={formData.city}
+                        onChange={handleInputChange}
+                        className={`mt-1 block w-full rounded-xl border ${
+                          formErrors.city ? "border-red-500" : "border-neutral-200"
+                        } p-2 text-sm`}
+                        placeholder="Enter your city"
+                      />
+                      {formErrors.city && <p className="mt-1 text-xs text-red-600">{formErrors.city}</p>}
+                    </div>
+                    <div>
+                      <label htmlFor="province" className="block text-sm font-medium text-emerald-950">
+                        Province *
+                      </label>
+                      <select
+                        id="province"
+                        name="province"
+                        value={formData.province}
+                        onChange={handleInputChange}
+                        className={`mt-1 block w-full rounded-xl border ${
+                          formErrors.province ? "border-red-500" : "border-neutral-200"
+                        } p-2 text-sm`}
+                      >
+                        <option value="">Select province</option>
+                        {PROVINCES.map((prov) => (
+                          <option key={prov.value} value={prov.value}>
+                            {prov.label}
+                          </option>
+                        ))}
+                      </select>
+                      {formErrors.province && (
+                        <p className="mt-1 text-xs text-red-600">{formErrors.province}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="postalCode" className="block text-sm font-medium text-emerald-950">
+                      Postal Code *
+                    </label>
+                    <input
+                      id="postalCode"
+                      name="postalCode"
+                      type="text"
+                      value={formData.postalCode}
+                      onChange={handleInputChange}
+                      className={`mt-1 block w-full rounded-xl border ${
+                        formErrors.postalCode ? "border-red-500" : "border-neutral-200"
+                      } p-2 text-sm`}
+                      placeholder="Enter your postal code"
+                    />
+                    {formErrors.postalCode && (
+                      <p className="mt-1 text-xs text-red-600">{formErrors.postalCode}</p>
+                    )}
+                  </div>
+                </>
+              )}
               <div>
                 <label htmlFor="notes" className="block text-sm font-medium text-emerald-950">
                   Order Notes (Optional)
@@ -808,6 +1198,7 @@ function CheckoutBody(): JSX.Element {
                   onChange={handleInputChange}
                   className="mt-1 block w-full rounded-xl border border-neutral-200 p-2 text-sm"
                   rows={3}
+                  placeholder="Any special instructions for your order..."
                 />
               </div>
             </div>
@@ -816,7 +1207,7 @@ function CheckoutBody(): JSX.Element {
 
         {/* Right: Summary */}
         <aside className="lg:col-span-2">
-          <div className="rounded-2xl border bg-white shadow-sm p-4 sm:p-5">
+          <div className="rounded-2xl border bg-white shadow-sm p-4 sm:p-5 sticky top-4">
             <div className="font-semibold text-emerald-950">Order Summary</div>
             <div className="mt-3 space-y-2 text-sm">
               {lines.map((line) => (
@@ -848,13 +1239,20 @@ function CheckoutBody(): JSX.Element {
               <button
                 onClick={onPay}
                 disabled={payLoading}
-                className="relative inline-flex items-center justify-center rounded-2xl px-6 py-3 bg-emerald-600 text-white font-medium shadow hover:bg-emerald-700 disabled:opacity-50"
+                className="relative inline-flex items-center justify-center rounded-2xl px-6 py-3 bg-emerald-600 text-white font-medium shadow hover:bg-emerald-700 disabled:opacity-50 transition-colors"
               >
-                {payLoading ? "Processing..." : "Pay Now"}
+                {payLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Processing...
+                  </>
+                ) : (
+                  "Pay Now"
+                )}
               </button>
               <Link
                 href="/cart"
-                className="inline-flex items-center justify-center rounded-2xl px-6 py-3 border text-emerald-950 hover:bg-emerald-50"
+                className="inline-flex items-center justify-center rounded-2xl px-6 py-3 border border-neutral-200 text-emerald-950 hover:bg-emerald-50 transition-colors"
               >
                 Back to Cart
               </Link>

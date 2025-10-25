@@ -1,22 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged, User, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { firestore } from '../lib/firebase-client';
 import { motion, AnimatePresence } from 'framer-motion';
-
-// Define types
-type Product = {
-  id: string;
-  name: string;
-  price: number;
-  currency: string;
-  img: string;
-};
-
-type CartItem = Product & { qty: number };
+import { v4 as uuidv4 } from 'uuid';
 
 // Icon Components
 function IconHome({ className }: { className?: string }) {
@@ -47,7 +38,14 @@ function IconCart({ className }: { className?: string }) {
   );
 }
 
-
+function IconOrders({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 4h16v16H4z" />
+      <path d="M8 8h8m-8 4h8m-8 4h8" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 function IconChevron({ className }: { className?: string }) {
   return (
@@ -57,100 +55,391 @@ function IconChevron({ className }: { className?: string }) {
   );
 }
 
-export default function CheckoutPage() {
+// Toast Hook and Component
+interface Toast {
+  id: string;
+  title: string;
+  description?: string;
+  variant?: "default" | "destructive";
+}
+
+function useToast() {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const toast = useCallback(
+    ({ title, description, variant = "default" }: Omit<Toast, "id">) => {
+      const id = uuidv4();
+      setToasts((prev) => [...prev, { id, title, description, variant }]);
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 3000);
+    },
+    []
+  );
+
+  return { toast, toasts };
+}
+
+function ToastComponent({ toasts }: { toasts: Toast[] }) {
+  return (
+    <div className="fixed bottom-4 right-4 space-y-2 z-50">
+      <AnimatePresence>
+        {toasts.map((toast) => (
+          <motion.div
+            key={toast.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className={`p-4 rounded-lg shadow-lg text-white ${
+              toast.variant === "destructive" ? "bg-red-600" : "bg-emerald-600"
+            }`}
+          >
+            <div className="font-semibold">{toast.title}</div>
+            {toast.description && <div className="text-sm mt-1">{toast.description}</div>}
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// Auth Modal Component
+function AuthModal({ onClose, initialLogin = true }: { onClose: () => void; initialLogin?: boolean }) {
+  const { toast } = useToast();
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [isLogin, setIsLogin] = useState(initialLogin);
+  const [authLoading, setAuthLoading] = useState(false);
+  const auth = getAuth(firestore.app);
+
+  const handleAuth = async () => {
+    if (!authEmail || !authPassword) {
+      toast({
+        title: "Error",
+        description: "Please enter email and password.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      if (isLogin) {
+        await signInWithEmailAndPassword(auth, authEmail, authPassword);
+        toast({
+          title: "Success",
+          description: "Logged in successfully.",
+        });
+      } else {
+        await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+        toast({
+          title: "Success",
+          description: "Registration successful.",
+        });
+      }
+      setAuthEmail("");
+      setAuthPassword("");
+      onClose();
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Authentication failed.",
+        variant: "destructive",
+      });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    setAuthLoading(true);
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+      toast({
+        title: "Success",
+        description: "Logged in with Google.",
+      });
+      onClose();
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Google authentication failed.",
+        variant: "destructive",
+      });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-bold text-emerald-950">
+            {isLogin ? "Log In Required" : "Sign Up Required"}
+          </h2>
+        </div>
+        <p className="text-emerald-900/70 mb-6">
+          You must {isLogin ? "log in" : "sign up"} to view your cart and orders.
+        </p>
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="auth-email" className="block text-sm font-medium text-emerald-950">
+              Email
+            </label>
+            <input
+              id="auth-email"
+              type="email"
+              value={authEmail}
+              onChange={(e) => setAuthEmail(e.target.value)}
+              className="mt-1 block w-full rounded-xl border border-neutral-200 p-2 text-sm"
+              placeholder="Enter your email"
+            />
+          </div>
+          <div>
+            <label htmlFor="auth-password" className="block text-sm font-medium text-emerald-950">
+              Password
+            </label>
+            <input
+              id="auth-password"
+              type="password"
+              value={authPassword}
+              onChange={(e) => setAuthPassword(e.target.value)}
+              className="mt-1 block w-full rounded-xl border border-neutral-200 p-2 text-sm"
+              placeholder="Enter your password"
+            />
+          </div>
+          <button
+            onClick={handleAuth}
+            disabled={authLoading}
+            className="w-full rounded-2xl px-6 py-3 bg-emerald-600 text-white font-medium shadow hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {authLoading ? "Processing..." : isLogin ? "Log In" : "Sign Up"}
+          </button>
+          <button
+            onClick={() => setIsLogin(!isLogin)}
+            className="w-full text-sm text-emerald-700 hover:underline"
+          >
+            {isLogin ? "Need an account? Sign up" : "Have an account? Log in"}
+          </button>
+          <button
+            onClick={handleGoogle}
+            disabled={authLoading}
+            className="w-full rounded-2xl px-6 py-3 border text-emerald-950 hover:bg-emerald-50"
+          >
+            Log in with Google
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// Define types
+type Product = {
+  id: string;
+  name: string;
+  price: number;
+  currency: string;
+  img: string;
+};
+
+type CartItem = Product & { qty: number };
+
+// Catalog
+const CATALOG: Record<string, Product> = {
+  "growth-100": {
+    id: "growth-100",
+    name: "Hair Growth Oil · 100ml",
+    price: 300,
+    currency: "R",
+    img: "/products/hair-growth-oil-100ml.png",
+  },
+  "detox-60": {
+    id: "detox-60",
+    name: "Scalp Detox Oil · 60ml",
+    price: 260,
+    currency: "R",
+    img: "/products/scalp-detox-oil-60ml.png",
+  },
+};
+
+export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const { toast, toasts } = useToast();
+  const auth = getAuth(firestore.app);
 
-  // Load cart items on component mount
+  // Firestore and LocalStorage Helpers
+  const USER_ID_KEY = "cart-user-id";
+  const CART_PATH = (userId: string) => `carts/${userId}`;
+
+  function getUserId(): string | null {
+    if (currentUser) return currentUser.uid;
+    return localStorage.getItem(USER_ID_KEY);
+  }
+
+  function parseCart(raw: unknown): Array<{ id: string; qty: number }> {
+    if (!Array.isArray(raw)) return [];
+    const valid: Array<{ id: string; qty: number }> = [];
+    for (const item of raw) {
+      if (
+        typeof item === "object" &&
+        item !== null &&
+        "id" in item &&
+        "qty" in item &&
+        typeof item.id === "string" &&
+        typeof item.qty === "number" &&
+        item.qty > 0
+      ) {
+        valid.push({ id: item.id, qty: Math.floor(item.qty) });
+      }
+    }
+    return valid;
+  }
+
+  async function readCart(userId: string): Promise<Array<{ id: string; qty: number }>> {
+    try {
+      const docRef = doc(firestore, CART_PATH(userId));
+      const docSnap = await getDoc(docRef);
+      return docSnap.exists() ? parseCart(docSnap.data().items) : [];
+    } catch (err) {
+      console.error("Error reading cart:", err);
+      toast({ title: "Error", description: "Failed to load cart.", variant: "destructive" });
+      return [];
+    }
+  }
+
+  async function writeCart(userId: string, items: Array<{ id: string; qty: number }>): Promise<void> {
+    try {
+      const docRef = doc(firestore, CART_PATH(userId));
+      await setDoc(docRef, { items, updatedAt: Date.now() }, { merge: true });
+    } catch (err) {
+      console.error("Error writing cart:", err);
+      toast({ title: "Error", description: "Failed to save cart.", variant: "destructive" });
+    }
+  }
+
+  const loadCartItems = async (user: User | null) => {
+    setLoading(true);
+    try {
+      if (!user) {
+        // No user - show auth modal
+        setShowAuthModal(true);
+        setCartItems([]);
+        setAuthChecked(true);
+        setLoading(false);
+        return;
+      }
+
+      const userId = user.uid;
+      const storedItems = await readCart(userId);
+
+      // Check if there's an anonymous cart to merge
+      const anonUserId = localStorage.getItem(USER_ID_KEY);
+      if (anonUserId && anonUserId !== user.uid) {
+        const anonItems = await readCart(anonUserId);
+        const mergedMap = new Map<string, { id: string; qty: number }>();
+        
+        // Add authenticated user's items
+        storedItems.forEach((item) => {
+          mergedMap.set(item.id, { ...item });
+        });
+        
+        // Merge anonymous items
+        anonItems.forEach((item) => {
+          const existing = mergedMap.get(item.id);
+          if (existing) {
+            existing.qty += item.qty;
+          } else {
+            mergedMap.set(item.id, { ...item });
+          }
+        });
+        
+        const mergedItems = Array.from(mergedMap.values());
+        await writeCart(user.uid, mergedItems);
+        await writeCart(anonUserId, []); // Clear anonymous cart
+        localStorage.setItem(USER_ID_KEY, user.uid);
+        
+        setCartItems(mergedItems.map((item) => ({
+          ...CATALOG[item.id] || { 
+            id: item.id, 
+            name: `Product ${item.id}`, 
+            price: item.id === 'growth-100' ? 300 : 260, 
+            currency: 'R', 
+            img: '/products/hair-growth-oil-100ml.png' 
+          },
+          qty: item.qty,
+        })));
+      } else {
+        const cartItems = storedItems.map((item) => ({
+          ...CATALOG[item.id] || { 
+            id: item.id, 
+            name: `Product ${item.id}`, 
+            price: item.id === 'growth-100' ? 300 : 260, 
+            currency: 'R', 
+            img: '/products/hair-growth-oil-100ml.png' 
+          },
+          qty: item.qty,
+        }));
+        setCartItems(cartItems);
+      }
+      
+      setShowAuthModal(false);
+    } catch (error) {
+      console.error('Error loading cart:', error);
+      setCartItems([]);
+      toast({ title: "Error", description: "Failed to load cart.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+      setAuthChecked(true);
+    }
+  };
+
+  // Initialize auth state and load cart
   useEffect(() => {
-    loadCartItems();
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setCurrentUser(user);
+      await loadCartItems(user);
+    });
+    return unsubscribe;
+  }, []);
 
-    // Listen for cart updates
+  // Listen for cart updates
+  useEffect(() => {
     const handleCartUpdate = () => {
-      loadCartItems();
+      loadCartItems(currentUser);
     };
     window.addEventListener('cartUpdated', handleCartUpdate);
     return () => {
       window.removeEventListener('cartUpdated', handleCartUpdate);
     };
-  }, []);
-
-  const loadCartItems = async () => {
-    try {
-      const userId = localStorage.getItem('cart-user-id');
-      if (!userId) {
-        setCartItems([]);
-        setLoading(false);
-        return;
-      }
-
-      // Try Firestore first
-      const docRef = doc(firestore, `carts/${userId}`);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const firestoreData = docSnap.data();
-        if (firestoreData && Array.isArray(firestoreData.items)) {
-          const cartItems = firestoreData.items.map((item: { id: string; qty: number }) => ({
-            id: item.id,
-            name: `Product ${item.id}`,
-            price: item.id === 'growth-100' ? 300 : 260,
-            currency: 'R',
-            img: '/products/hair-growth-oil-100ml.png',
-            qty: item.qty,
-          }));
-          setCartItems(cartItems);
-          // Update localStorage to sync
-          localStorage.setItem(`firestore:cart:${userId}`, JSON.stringify({ userId, items: firestoreData.items, updatedAt: Date.now() }));
-          localStorage.setItem('dn-cart', JSON.stringify(firestoreData.items));
-          setLoading(false);
-          return;
-        }
-      }
-
-      // Fallback to localStorage Firestore structure
-      const firestoreData = localStorage.getItem(`firestore:cart:${userId}`);
-      if (firestoreData) {
-        const parsed = JSON.parse(firestoreData);
-        if (parsed && Array.isArray(parsed.items)) {
-          const cartItems = parsed.items.map((item: { id: string; qty: number }) => ({
-            id: item.id,
-            name: `Product ${item.id}`,
-            price: item.id === 'growth-100' ? 300 : 260,
-            currency: 'R',
-            img: '/products/hair-growth-oil-100ml.png',
-            qty: item.qty,
-          }));
-          setCartItems(cartItems);
-          setLoading(false);
-          return;
-        }
-      }
-
-      // Fallback to legacy structure
-      const legacyData = localStorage.getItem('dn-cart');
-      if (legacyData) {
-        const items = JSON.parse(legacyData) as Array<{ id: string; qty: number }>;
-        const cartItems = items.map((item) => ({
-          id: item.id,
-          name: `Product ${item.id}`,
-          price: item.id === 'growth-100' ? 300 : 260,
-          currency: 'R',
-          img: '/products/hair-growth-oil-100ml.png',
-          qty: item.qty,
-        }));
-        setCartItems(cartItems);
-      } else {
-        setCartItems([]);
-      }
-    } catch (error) {
-      console.error('Error loading cart:', error);
-      setCartItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [currentUser]);
 
   const updateQuantity = (id: string, newQty: number) => {
+    if (!currentUser) {
+      setShowAuthModal(true);
+      toast({ 
+        title: "Authentication Required", 
+        description: "Please log in to modify your cart.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     if (newQty < 1) return;
 
     const updatedItems = cartItems.map((item) =>
@@ -161,60 +450,76 @@ export default function CheckoutPage() {
   };
 
   const removeItem = (id: string) => {
+    if (!currentUser) {
+      setShowAuthModal(true);
+      toast({ 
+        title: "Authentication Required", 
+        description: "Please log in to modify your cart.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     const updatedItems = cartItems.filter((item) => item.id !== id);
     setCartItems(updatedItems);
     saveCart(updatedItems);
   };
 
   const saveCart = async (items: CartItem[]) => {
-    try {
-      const userId = localStorage.getItem('cart-user-id');
-      if (!userId) return;
+    if (!currentUser) {
+      toast({ 
+        title: "Authentication Required", 
+        description: "Please log in to save your cart.", 
+        variant: "destructive" 
+      });
+      return;
+    }
 
+    try {
+      const userId = currentUser.uid;
       const storedItems = items.map((item) => ({
         id: item.id,
         qty: item.qty,
       }));
-
-      // Save to Firestore
-      const docRef = doc(firestore, `carts/${userId}`);
-      await setDoc(docRef, { items: storedItems, updatedAt: Date.now() }, { merge: true });
-
-      // Save to localStorage for compatibility
-      const firestoreData = { userId, items: storedItems, updatedAt: Date.now() };
-      localStorage.setItem(`firestore:cart:${userId}`, JSON.stringify(firestoreData));
-      localStorage.setItem('dn-cart', JSON.stringify(storedItems));
-
-      // Dispatch event for other components to sync
+      await writeCart(userId, storedItems);
       window.dispatchEvent(new Event('cartUpdated'));
     } catch (error) {
       console.error('Error saving cart:', error);
+      toast({ title: "Error", description: "Failed to save cart.", variant: "destructive" });
     }
   };
 
   const clearCart = async () => {
+    if (!currentUser) {
+      setShowAuthModal(true);
+      toast({ 
+        title: "Authentication Required", 
+        description: "Please log in to clear your cart.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     setCartItems([]);
     try {
-      const userId = localStorage.getItem('cart-user-id');
-      if (userId) {
-        localStorage.removeItem(`firestore:cart:${userId}`);
-        await setDoc(doc(firestore, `carts/${userId}`), { items: [], updatedAt: Date.now() }, { merge: true });
-      }
-      localStorage.removeItem('dn-cart');
+      const userId = currentUser.uid;
+      await writeCart(userId, []);
       window.dispatchEvent(new Event('cartUpdated'));
     } catch (error) {
       console.error('Error clearing cart:', error);
+      toast({ title: "Error", description: "Failed to clear cart.", variant: "destructive" });
     }
   };
 
   const subtotal = cartItems.reduce((sum, item) => sum + ((item.price ?? 0) * item.qty), 0);
   const totalItems = cartItems.reduce((sum, item) => sum + item.qty, 0);
 
+  // Show loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white py-12">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <h1 className="text-3xl font-bold text-emerald-900 mb-8">Checkout</h1>
+          <h1 className="text-3xl font-bold text-emerald-900 mb-8">Cart</h1>
           <div className="animate-pulse">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-emerald-100">
               <div className="h-4 bg-emerald-100 rounded w-1/4 mb-4"></div>
@@ -227,8 +532,100 @@ export default function CheckoutPage() {
     );
   }
 
+  // Show authentication required state
+  if (!currentUser && authChecked) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white py-12">
+        <ToastComponent toasts={toasts} />
+        <AnimatePresence>
+          {showAuthModal && <AuthModal onClose={() => {}} />}
+        </AnimatePresence>
+        
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          {/* Breadcrumbs */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-6"
+          >
+            <nav aria-label="Breadcrumb" className="bg-gradient-to-b from-emerald-50/60 to-white border-b">
+              <div className="max-w-6xl mx-auto px-4 py-3">
+                <ol className="flex flex-wrap items-center gap-1.5">
+                  <li>
+                    <Link
+                      href="/"
+                      className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
+                    >
+                      <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
+                        <IconHome className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="font-medium">Home</span>
+                    </Link>
+                  </li>
+                  <li aria-hidden className="px-1 text-emerald-700/60">
+                    <IconChevron className="w-4 h-4" />
+                  </li>
+                  <li>
+                    <Link
+                      href="/shop"
+                      className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
+                    >
+                      <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
+                        <IconBag className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="font-medium">Shop</span>
+                    </Link>
+                  </li>
+                  <li aria-hidden className="px-1 text-emerald-700/60">
+                    <IconChevron className="w-4 h-4" />
+                  </li>
+                  <li aria-current="page">
+                    <span
+                      className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 text-white px-3 py-1.5 text-sm shadow"
+                    >
+                      <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-white/20 border border-white/30">
+                        <IconCart className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="font-semibold">Cart</span>
+                    </span>
+                  </li>
+                </ol>
+              </div>
+            </nav>
+          </motion.div>
+
+          <h1 className="text-3xl font-bold text-emerald-900 mb-8">Cart</h1>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="bg-white rounded-2xl p-8 text-center shadow-sm border border-emerald-100"
+          >
+            <div className="text-6xl mb-4">🔒</div>
+            <h2 className="text-2xl font-semibold text-emerald-900 mb-4">Authentication Required</h2>
+            <p className="text-emerald-700 mb-6">Please log in to view and manage your cart.</p>
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="inline-flex items-center justify-center rounded-full px-6 py-3 bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition shadow-md"
+            >
+              Log In to Continue
+            </button>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  // Normal cart page for authenticated users
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white py-12">
+      <ToastComponent toasts={toasts} />
+      <AnimatePresence>
+        {showAuthModal && <AuthModal onClose={() => {}} />}
+      </AnimatePresence>
+      
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         {/* Breadcrumbs */}
         <motion.div
@@ -268,27 +665,43 @@ export default function CheckoutPage() {
                 <li aria-hidden className="px-1 text-emerald-700/60">
                   <IconChevron className="w-4 h-4" />
                 </li>
-                <li>
-                  <Link
-                    href="/cart"
-                    className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
+                <li aria-current="page">
+                  <span
+                    className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 text-white px-3 py-1.5 text-sm shadow"
                   >
-                    <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
+                    <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-white/20 border border-white/30">
                       <IconCart className="w-3.5 h-3.5" />
                     </span>
-                    <span className="font-medium">Cart</span>
-                  </Link>
+                    <span className="font-semibold">Cart</span>
+                  </span>
                 </li>
                 <li aria-hidden className="px-1 text-emerald-700/60">
                   <IconChevron className="w-4 h-4" />
                 </li>
-              
+                <li>
+                  <Link
+                    href="/orders"
+                    className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
+                  >
+                    <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
+                      <IconOrders className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="font-medium">My Orders</span>
+                  </Link>
+                </li>
               </ol>
             </div>
           </nav>
         </motion.div>
 
-        <h1 className="text-3xl font-bold text-emerald-900 mb-8">Checkout</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-emerald-900">Cart</h1>
+          {currentUser && (
+            <div className="text-sm text-emerald-700">
+              Welcome, {currentUser.displayName || currentUser.email}
+            </div>
+          )}
+        </div>
 
         {cartItems.length === 0 ? (
           <motion.div
