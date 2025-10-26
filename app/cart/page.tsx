@@ -4,12 +4,21 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { getAuth, onAuthStateChanged, User, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import {
+  getAuth,
+  onAuthStateChanged,
+  User,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
+} from 'firebase/auth';
+import type { FirebaseError } from 'firebase/app';
 import { firestore } from '../lib/firebase-client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
-// Icon Components
+/* ========================= Icons ========================= */
 function IconHome({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -18,7 +27,6 @@ function IconHome({ className }: { className?: string }) {
     </svg>
   );
 }
-
 function IconBag({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -27,7 +35,6 @@ function IconBag({ className }: { className?: string }) {
     </svg>
   );
 }
-
 function IconCart({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -37,7 +44,6 @@ function IconCart({ className }: { className?: string }) {
     </svg>
   );
 }
-
 function IconOrders({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -46,7 +52,6 @@ function IconOrders({ className }: { className?: string }) {
     </svg>
   );
 }
-
 function IconChevron({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 20" className={className} fill="currentColor" aria-hidden>
@@ -55,7 +60,7 @@ function IconChevron({ className }: { className?: string }) {
   );
 }
 
-// Toast Hook and Component
+/* ========================= Toast ========================= */
 interface Toast {
   id: string;
   title: string;
@@ -65,7 +70,6 @@ interface Toast {
 
 function useToast() {
   const [toasts, setToasts] = useState<Toast[]>([]);
-
   const toast = useCallback(
     ({ title, description, variant = "default" }: Omit<Toast, "id">) => {
       const id = uuidv4();
@@ -76,7 +80,6 @@ function useToast() {
     },
     []
   );
-
   return { toast, toasts };
 }
 
@@ -103,9 +106,76 @@ function ToastComponent({ toasts }: { toasts: Toast[] }) {
   );
 }
 
-// Auth Modal Component
-function AuthModal({ onClose, initialLogin = true }: { onClose: () => void; initialLogin?: boolean }) {
-  const { toast } = useToast();
+/* =================== Auth Error Formatting =================== */
+const FRIENDLY_AUTH_MESSAGES: Record<string, string> = {
+  // SDK codes (err.code)
+  'auth/invalid-email': 'Please enter a valid email address.',
+  'auth/missing-password': 'Please enter your password.',
+  'auth/user-not-found': 'No account exists with that email.',
+  'auth/wrong-password': 'Incorrect password. Please try again.',
+  'auth/invalid-credential': 'Email or password is incorrect.',
+  'auth/too-many-requests': 'Too many attempts. Please wait and try again.',
+  'auth/operation-not-allowed': 'Email/password sign-in is disabled for this project.',
+  'auth/network-request-failed': 'Network error. Check your connection and try again.',
+  'auth/popup-closed-by-user': 'The sign-in popup was closed before completing.',
+  'auth/popup-blocked': 'The sign-in popup was blocked by your browser.',
+  // Server REST messages
+  'EMAIL_NOT_FOUND': 'No account exists with that email.',
+  'INVALID_PASSWORD': 'Incorrect password. Please try again.',
+  'USER_DISABLED': 'This account has been disabled.',
+  'WEAK_PASSWORD : Password should be at least 6 characters': 'Password must be at least 6 characters.',
+  'EMAIL_EXISTS': 'An account already exists with that email.',
+  'UNAUTHORIZED_DOMAIN': 'This domain is not authorized in Firebase Authentication settings.',
+  'API_KEY_INVALID': 'This API key is invalid for Authentication.',
+  'CONFIGURATION_NOT_FOUND': 'Auth is not enabled for this project or API key.',
+};
+
+function formatFirebaseAuthError(e: unknown) {
+  const err = e as FirebaseError & {
+    customData?: {
+      _tokenResponse?: {
+        error?: { message?: string }
+      }
+    }
+  };
+
+  const sdkCode = err?.code || '';
+  const serverMessage = err?.customData?._tokenResponse?.error?.message || '';
+  const fallback = err?.message || 'Authentication failed.';
+
+  const friendly =
+    FRIENDLY_AUTH_MESSAGES[sdkCode] ||
+    FRIENDLY_AUTH_MESSAGES[serverMessage] ||
+    fallback;
+
+  console.error('Auth error details →', {
+    sdkCode,
+    serverMessage,
+    message: err?.message,
+    name: err?.name,
+    stack: err?.stack,
+    raw: err,
+  });
+
+  return {
+    title: 'Authentication Error',
+    description:
+      friendly + (serverMessage && !FRIENDLY_AUTH_MESSAGES[serverMessage] ? ` (${serverMessage})` : ''),
+    sdkCode,
+    serverMessage,
+  };
+}
+
+/* ========================= Auth Modal ========================= */
+function AuthModal({
+  onClose,
+  initialLogin = true,
+  toast,
+}: {
+  onClose: () => void;
+  initialLogin?: boolean;
+  toast: (opts: { title: string; description?: string; variant?: "default" | "destructive" }) => void;
+}) {
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [isLogin, setIsLogin] = useState(initialLogin);
@@ -116,50 +186,35 @@ function AuthModal({ onClose, initialLogin = true }: { onClose: () => void; init
   useEffect(() => {
     import('firebase/auth').then(({ getAuth }) => {
       setAuth(getAuth(firestore.app));
+    }).catch((err) => {
+      console.error('Failed to lazy-load Firebase Auth:', err);
     });
   }, []);
 
   const handleAuth = async () => {
     if (!auth) {
-      toast({
-        title: "Error",
-        description: "Authentication not initialized.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Authentication not initialized.", variant: "destructive" });
       return;
     }
     if (!authEmail || !authPassword) {
-      toast({
-        title: "Error",
-        description: "Please enter email and password.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Please enter email and password.", variant: "destructive" });
       return;
     }
     setAuthLoading(true);
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, authEmail, authPassword);
-        toast({
-          title: "Success",
-          description: "Logged in successfully.",
-        });
+        toast({ title: "Success", description: "Logged in successfully." });
       } else {
         await createUserWithEmailAndPassword(auth, authEmail, authPassword);
-        toast({
-          title: "Success",
-          description: "Registration successful.",
-        });
+        toast({ title: "Success", description: "Registration successful." });
       }
       setAuthEmail("");
       setAuthPassword("");
       onClose();
-    } catch (err: any) {
-      toast({
-        title: "Error",
-        description: err.message || "Authentication failed.",
-        variant: "destructive",
-      });
+    } catch (e) {
+      const info = formatFirebaseAuthError(e);
+      toast({ title: info.title, description: info.description, variant: "destructive" });
     } finally {
       setAuthLoading(false);
     }
@@ -167,38 +222,26 @@ function AuthModal({ onClose, initialLogin = true }: { onClose: () => void; init
 
   const handleGoogle = async () => {
     if (!auth) {
-      toast({
-        title: "Error",
-        description: "Authentication not initialized.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Authentication not initialized.", variant: "destructive" });
       return;
     }
     setAuthLoading(true);
     try {
       await signInWithPopup(auth, new GoogleAuthProvider());
-      toast({
-        title: "Success",
-        description: "Logged in with Google.",
-      });
+      toast({ title: "Success", description: "Logged in with Google." });
       onClose();
-    } catch (err: any) {
-      toast({
-        title: "Error",
-        description: err.message || "Google authentication failed.",
-        variant: "destructive",
-      });
+    } catch (e) {
+      const info = formatFirebaseAuthError(e);
+      toast({ title: info.title, description: info.description, variant: "destructive" });
     } finally {
       setAuthLoading(false);
     }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={onClose}
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
@@ -217,9 +260,7 @@ function AuthModal({ onClose, initialLogin = true }: { onClose: () => void; init
         </p>
         <div className="space-y-4">
           <div>
-            <label htmlFor="auth-email" className="block text-sm font-medium text-emerald-950">
-              Email
-            </label>
+            <label htmlFor="auth-email" className="block text-sm font-medium text-emerald-950">Email</label>
             <input
               id="auth-email"
               type="email"
@@ -230,9 +271,7 @@ function AuthModal({ onClose, initialLogin = true }: { onClose: () => void; init
             />
           </div>
           <div>
-            <label htmlFor="auth-password" className="block text-sm font-medium text-emerald-950">
-              Password
-            </label>
+            <label htmlFor="auth-password" className="block text-sm font-medium text-emerald-950">Password</label>
             <input
               id="auth-password"
               type="password"
@@ -249,10 +288,7 @@ function AuthModal({ onClose, initialLogin = true }: { onClose: () => void; init
           >
             {authLoading ? "Processing..." : isLogin ? "Log In" : "Sign Up"}
           </button>
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="w-full text-sm text-emerald-700 hover:underline"
-          >
+          <button onClick={() => setIsLogin(!isLogin)} className="w-full text-sm text-emerald-700 hover:underline">
             {isLogin ? "Need an account? Sign up" : "Have an account? Log in"}
           </button>
           <button
@@ -268,18 +304,10 @@ function AuthModal({ onClose, initialLogin = true }: { onClose: () => void; init
   );
 }
 
-// Define types
-type Product = {
-  id: string;
-  name: string;
-  price: number;
-  currency: string;
-  img: string;
-};
-
+/* ========================= Types & Catalog ========================= */
+type Product = { id: string; name: string; price: number; currency: string; img: string; };
 type CartItem = Product & { qty: number };
 
-// Catalog
 const CATALOG: Record<string, Product> = {
   "growth-100": {
     id: "growth-100",
@@ -297,6 +325,7 @@ const CATALOG: Record<string, Product> = {
   },
 };
 
+/* ========================= Page ========================= */
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -306,33 +335,27 @@ export default function CartPage() {
   const { toast, toasts } = useToast();
   const [auth, setAuth] = useState<any>(null);
 
-  // Initialize auth dynamically
+  // Initialize auth dynamically with optional SDK logging
   useEffect(() => {
     Promise.all([import('firebase/auth'), import('firebase/app')])
       .then(([{ getAuth }, { setLogLevel }]) => {
         const authInstance = getAuth(firestore.app);
-        // If available, enable library-wide debug logging
-        if (typeof setLogLevel === 'function') {
-          setLogLevel('debug');
-        }
+        if (typeof setLogLevel === 'function') setLogLevel('debug');
         setAuth(authInstance);
       })
       .catch((err) => {
         console.error('Failed to initialize Firebase Auth:', err);
-        toast({
-          title: "Error",
-          description: "Failed to initialize authentication.",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: "Failed to initialize authentication.", variant: "destructive" });
       });
   }, [toast]);
 
-  // Firestore and LocalStorage Helpers
+  // Firestore helpers
   const USER_ID_KEY = "cart-user-id";
   const CART_PATH = (userId: string) => `carts/${userId}`;
 
   function getUserId(): string | null {
     if (currentUser) return currentUser.uid;
+    if (typeof window === 'undefined') return null;
     return localStorage.getItem(USER_ID_KEY);
   }
 
@@ -345,11 +368,11 @@ export default function CartPage() {
         item !== null &&
         "id" in item &&
         "qty" in item &&
-        typeof item.id === "string" &&
-        typeof item.qty === "number" &&
-        item.qty > 0
+        typeof (item as any).id === "string" &&
+        typeof (item as any).qty === "number" &&
+        (item as any).qty > 0
       ) {
-        valid.push({ id: item.id, qty: Math.floor(item.qty) });
+        valid.push({ id: (item as any).id, qty: Math.floor((item as any).qty) });
       }
     }
     return valid;
@@ -359,7 +382,7 @@ export default function CartPage() {
     try {
       const docRef = doc(firestore, CART_PATH(userId));
       const docSnap = await getDoc(docRef);
-      return docSnap.exists() ? parseCart(docSnap.data().items) : [];
+      return docSnap.exists() ? parseCart((docSnap.data() as any).items) : [];
     } catch (err) {
       console.error("Error reading cart:", err);
       toast({ title: "Error", description: "Failed to load cart.", variant: "destructive" });
@@ -391,53 +414,49 @@ export default function CartPage() {
       const userId = user.uid;
       const storedItems = await readCart(userId);
 
-      const anonUserId = localStorage.getItem(USER_ID_KEY);
+      const anonUserId = typeof window !== 'undefined' ? localStorage.getItem(USER_ID_KEY) : null;
       if (anonUserId && anonUserId !== user.uid) {
         const anonItems = await readCart(anonUserId);
         const mergedMap = new Map<string, { id: string; qty: number }>();
-        
-        storedItems.forEach((item) => {
-          mergedMap.set(item.id, { ...item });
-        });
-        
+
+        storedItems.forEach((item) => mergedMap.set(item.id, { ...item }));
         anonItems.forEach((item) => {
           const existing = mergedMap.get(item.id);
-          if (existing) {
-            existing.qty += item.qty;
-          } else {
-            mergedMap.set(item.id, { ...item });
-          }
+          if (existing) existing.qty += item.qty;
+          else mergedMap.set(item.id, { ...item });
         });
-        
+
         const mergedItems = Array.from(mergedMap.values());
         await writeCart(user.uid, mergedItems);
         await writeCart(anonUserId, []);
-        localStorage.setItem(USER_ID_KEY, user.uid);
-        
-        setCartItems(mergedItems.map((item) => ({
-          ...CATALOG[item.id] || { 
-            id: item.id, 
-            name: `Product ${item.id}`, 
-            price: item.id === 'growth-100' ? 300 : 260, 
-            currency: 'R', 
-            img: '/products/hair-growth-oil-100ml.png' 
-          },
-          qty: item.qty,
-        })));
+        if (typeof window !== 'undefined') localStorage.setItem(USER_ID_KEY, user.uid);
+
+        setCartItems(
+          mergedItems.map((item) => ({
+            ...(CATALOG[item.id] || {
+              id: item.id,
+              name: `Product ${item.id}`,
+              price: item.id === 'growth-100' ? 300 : 260,
+              currency: 'R',
+              img: '/products/hair-growth-oil-100ml.png',
+            }),
+            qty: item.qty,
+          }))
+        );
       } else {
-        const cartItems = storedItems.map((item) => ({
-          ...CATALOG[item.id] || { 
-            id: item.id, 
-            name: `Product ${item.id}`, 
-            price: item.id === 'growth-100' ? 300 : 260, 
-            currency: 'R', 
-            img: '/products/hair-growth-oil-100ml.png' 
-          },
+        const items = storedItems.map((item) => ({
+          ...(CATALOG[item.id] || {
+            id: item.id,
+            name: `Product ${item.id}`,
+            price: item.id === 'growth-100' ? 300 : 260,
+            currency: 'R',
+            img: '/products/hair-growth-oil-100ml.png',
+          }),
           qty: item.qty,
         }));
-        setCartItems(cartItems);
+        setCartItems(items);
       }
-      
+
       setShowAuthModal(false);
     } catch (error) {
       console.error('Error loading cart:', error);
@@ -461,31 +480,19 @@ export default function CartPage() {
 
   // Listen for cart updates
   useEffect(() => {
-    const handleCartUpdate = () => {
-      loadCartItems(currentUser);
-    };
+    const handleCartUpdate = () => { loadCartItems(currentUser); };
     window.addEventListener('cartUpdated', handleCartUpdate);
-    return () => {
-      window.removeEventListener('cartUpdated', handleCartUpdate);
-    };
+    return () => { window.removeEventListener('cartUpdated', handleCartUpdate); };
   }, [currentUser]);
 
   const updateQuantity = (id: string, newQty: number) => {
     if (!currentUser) {
       setShowAuthModal(true);
-      toast({ 
-        title: "Authentication Required", 
-        description: "Please log in to modify your cart.", 
-        variant: "destructive" 
-      });
+      toast({ title: "Authentication Required", description: "Please log in to modify your cart.", variant: "destructive" });
       return;
     }
-
     if (newQty < 1) return;
-
-    const updatedItems = cartItems.map((item) =>
-      item.id === id ? { ...item, qty: newQty } : item
-    );
+    const updatedItems = cartItems.map((item) => item.id === id ? { ...item, qty: newQty } : item);
     setCartItems(updatedItems);
     saveCart(updatedItems);
   };
@@ -493,14 +500,9 @@ export default function CartPage() {
   const removeItem = (id: string) => {
     if (!currentUser) {
       setShowAuthModal(true);
-      toast({ 
-        title: "Authentication Required", 
-        description: "Please log in to modify your cart.", 
-        variant: "destructive" 
-      });
-      return;
+      toast({ title: "Authentication Required", description: "Please log in to modify your cart.", variant: "destructive" });
+    return;
     }
-
     const updatedItems = cartItems.filter((item) => item.id !== id);
     setCartItems(updatedItems);
     saveCart(updatedItems);
@@ -508,20 +510,12 @@ export default function CartPage() {
 
   const saveCart = async (items: CartItem[]) => {
     if (!currentUser) {
-      toast({ 
-        title: "Authentication Required", 
-        description: "Please log in to save your cart.", 
-        variant: "destructive" 
-      });
+      toast({ title: "Authentication Required", description: "Please log in to save your cart.", variant: "destructive" });
       return;
     }
-
     try {
       const userId = currentUser.uid;
-      const storedItems = items.map((item) => ({
-        id: item.id,
-        qty: item.qty,
-      }));
+      const storedItems = items.map((item) => ({ id: item.id, qty: item.qty }));
       await writeCart(userId, storedItems);
       window.dispatchEvent(new Event('cartUpdated'));
     } catch (error) {
@@ -533,14 +527,9 @@ export default function CartPage() {
   const clearCart = async () => {
     if (!currentUser) {
       setShowAuthModal(true);
-      toast({ 
-        title: "Authentication Required", 
-        description: "Please log in to clear your cart.", 
-        variant: "destructive" 
-      });
+      toast({ title: "Authentication Required", description: "Please log in to clear your cart.", variant: "destructive" });
       return;
     }
-
     setCartItems([]);
     try {
       const userId = currentUser.uid;
@@ -555,7 +544,7 @@ export default function CartPage() {
   const subtotal = cartItems.reduce((sum, item) => sum + ((item.price ?? 0) * item.qty), 0);
   const totalItems = cartItems.reduce((sum, item) => sum + item.qty, 0);
 
-  // Show loading state
+  /* ========================= UI ========================= */
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white py-12">
@@ -573,57 +562,37 @@ export default function CartPage() {
     );
   }
 
-  // Show authentication required state
   if (!currentUser && authChecked) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white py-12">
         <ToastComponent toasts={toasts} />
         <AnimatePresence>
-          {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+          {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} toast={toast} />}
         </AnimatePresence>
-        
+
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-6"
-          >
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-6">
             <nav aria-label="Breadcrumb" className="bg-gradient-to-b from-emerald-50/60 to-white border-b">
               <div className="max-w-6xl mx-auto px-4 py-3">
                 <ol className="flex flex-wrap items-center gap-1.5">
                   <li>
-                    <Link
-                      href="/"
-                      className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
-                    >
+                    <Link href="/" className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition">
                       <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
                         <IconHome className="w-3.5 h-3.5" />
                       </span>
                       <span className="font-medium">Home</span>
                     </Link>
                   </li>
-                  <li aria-hidden className="px-1 text-emerald-700/60">
-                    <IconChevron className="w-4 h-4" />
-                  </li>
+                  <li aria-hidden className="px-1 text-emerald-700/60"><IconChevron className="w-4 h-4" /></li>
                   <li>
-                    <Link
-                      href="/shop"
-                      className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
-                    >
-                      <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
-                        <IconBag className="w-3.5 h-3.5" />
-                      </span>
+                    <Link href="/shop" className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition">
+                      <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border"><IconBag className="w-3.5 h-3.5" /></span>
                       <span className="font-medium">Shop</span>
                     </Link>
                   </li>
-                  <li aria-hidden className="px-1 text-emerald-700/60">
-                    <IconChevron className="w-4 h-4" />
-                  </li>
+                  <li aria-hidden className="px-1 text-emerald-700/60"><IconChevron className="w-4 h-4" /></li>
                   <li aria-current="page">
-                    <span
-                      className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 text-white px-3 py-1.5 text-sm shadow"
-                    >
+                    <span className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 text-white px-3 py-1.5 text-sm shadow">
                       <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-white/20 border border-white/30">
                         <IconCart className="w-3.5 h-3.5" />
                       </span>
@@ -637,10 +606,7 @@ export default function CartPage() {
 
           <h1 className="text-3xl font-bold text-emerald-900 mb-8">Cart</h1>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
             className="bg-white rounded-2xl p-8 text-center shadow-sm border border-emerald-100"
           >
             <div className="text-6xl mb-4">🔒</div>
@@ -658,73 +624,46 @@ export default function CartPage() {
     );
   }
 
-  // Normal cart page for authenticated users
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white py-12">
       <ToastComponent toasts={toasts} />
       <AnimatePresence>
-        {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+        {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} toast={toast} />}
       </AnimatePresence>
-      
+
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-6"
-        >
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-6">
           <nav aria-label="Breadcrumb" className="bg-gradient-to-b from-emerald-50/60 to-white border-b">
             <div className="max-w-6xl mx-auto px-4 py-3">
               <ol className="flex flex-wrap items-center gap-1.5">
                 <li>
-                  <Link
-                    href="/"
-                    className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
-                  >
+                  <Link href="/" className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition">
                     <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
                       <IconHome className="w-3.5 h-3.5" />
                     </span>
                     <span className="font-medium">Home</span>
                   </Link>
                 </li>
-                <li aria-hidden className="px-1 text-emerald-700/60">
-                  <IconChevron className="w-4 h-4" />
-                </li>
+                <li aria-hidden className="px-1 text-emerald-700/60"><IconChevron className="w-4 h-4" /></li>
                 <li>
-                  <Link
-                    href="/shop"
-                    className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
-                  >
-                    <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
-                      <IconBag className="w-3.5 h-3.5" />
-                    </span>
+                  <Link href="/shop" className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition">
+                    <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border"><IconBag className="w-3.5 h-3.5" /></span>
                     <span className="font-medium">Shop</span>
                   </Link>
                 </li>
-                <li aria-hidden className="px-1 text-emerald-700/60">
-                  <IconChevron className="w-4 h-4" />
-                </li>
+                <li aria-hidden className="px-1 text-emerald-700/60"><IconChevron className="w-4 h-4" /></li>
                 <li aria-current="page">
-                  <span
-                    className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 text-white px-3 py-1.5 text-sm shadow"
-                  >
+                  <span className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 text-white px-3 py-1.5 text-sm shadow">
                     <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-white/20 border border-white/30">
                       <IconCart className="w-3.5 h-3.5" />
                     </span>
                     <span className="font-semibold">Cart</span>
                   </span>
                 </li>
-                <li aria-hidden className="px-1 text-emerald-700/60">
-                  <IconChevron className="w-4 h-4" />
-                </li>
+                <li aria-hidden className="px-1 text-emerald-700/60"><IconChevron className="w-4 h-4" /></li>
                 <li>
-                  <Link
-                    href="/orders"
-                    className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
-                  >
-                    <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border">
-                      <IconOrders className="w-3.5 h-3.5" />
-                    </span>
+                  <Link href="/orders" className="group inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-1.5 text-sm text-emerald-900 shadow-sm hover:-translate-y-0.5 hover:shadow transition">
+                    <span className="inline-grid place-items-center w-6 h-6 rounded-xl bg-emerald-100 text-emerald-700 border"><IconOrders className="w-3.5 h-3.5" /></span>
                     <span className="font-medium">My Orders</span>
                   </Link>
                 </li>
@@ -735,37 +674,24 @@ export default function CartPage() {
 
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-emerald-900">Cart</h1>
-          {currentUser && (
-            <div className="text-sm text-emerald-700">
-              Welcome, {currentUser.displayName || currentUser.email}
-            </div>
-          )}
+          {currentUser && <div className="text-sm text-emerald-700">Welcome, {currentUser.displayName || currentUser.email}</div>}
         </div>
 
         {cartItems.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
             className="bg-white rounded-2xl p-8 text-center shadow-sm border border-emerald-100"
           >
             <div className="text-6xl mb-4">🛒</div>
             <h2 className="text-2xl font-semibold text-emerald-900 mb-4">Your Cart is Empty</h2>
             <p className="text-emerald-700 mb-6">Explore our products and add something special to your cart!</p>
-            <Link
-              href="/shop"
-              className="inline-flex items-center justify-center rounded-full px-6 py-3 bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition shadow-md"
-            >
+            <Link href="/shop" className="inline-flex items-center justify-center rounded-full px-6 py-3 bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition shadow-md">
               Shop Now
             </Link>
           </motion.div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5 }}
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}
                 className="bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden"
               >
                 <AnimatePresence>
@@ -778,24 +704,14 @@ export default function CartPage() {
                       transition={{ duration: 0.3 }}
                       className="p-4 sm:p-6 flex items-center gap-4 border-b border-emerald-100 last:border-b-0"
                     >
-                      <Image
-                        src={item.img}
-                        alt={item.name}
-                        width={80}
-                        height={80}
-                        className="rounded-xl object-contain border border-emerald-100"
-                      />
+                      <Image src={item.img} alt={item.name} width={80} height={80} className="rounded-xl object-contain border border-emerald-100" />
                       <div className="flex-1">
                         <h3 className="font-semibold text-emerald-900 text-lg">{item.name}</h3>
-                        <p className="text-emerald-700">
-                          {item.currency} {(item.price ?? 0).toLocaleString('en-ZA')}
-                        </p>
+                        <p className="text-emerald-700">{item.currency} {(item.price ?? 0).toLocaleString('en-ZA')}</p>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="flex items-center rounded-xl border border-emerald-200 bg-white shadow-sm">
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
+                          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                             onClick={() => updateQuantity(item.id, item.qty - 1)}
                             className="w-10 h-10 flex items-center justify-center text-emerald-700 hover:bg-emerald-50 transition"
                             disabled={item.qty <= 1}
@@ -803,12 +719,8 @@ export default function CartPage() {
                           >
                             −
                           </motion.button>
-                          <span className="w-12 h-10 flex items-center justify-center text-emerald-900 font-medium">
-                            {item.qty}
-                          </span>
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
+                          <span className="w-12 h-10 flex items-center justify-center text-emerald-900 font-medium">{item.qty}</span>
+                          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                             onClick={() => updateQuantity(item.id, item.qty + 1)}
                             className="w-10 h-10 flex items-center justify-center text-emerald-700 hover:bg-emerald-50 transition"
                             aria-label="Increase quantity"
@@ -819,9 +731,7 @@ export default function CartPage() {
                         <div className="w-20 text-right font-semibold text-emerald-900">
                           {item.currency} {((item.price ?? 0) * item.qty).toLocaleString('en-ZA')}
                         </div>
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
+                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                           onClick={() => removeItem(item.id)}
                           className="w-10 h-10 flex items-center justify-center text-red-600 hover:bg-red-50 rounded-full transition"
                           title="Remove item"
@@ -836,18 +746,13 @@ export default function CartPage() {
               </motion.div>
             </div>
 
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.2 }}
               className="bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 sticky top-4"
             >
               <h2 className="text-xl font-semibold text-emerald-900 mb-4">Order Summary</h2>
               <div className="flex justify-between items-center mb-4">
                 <span className="text-emerald-700">Subtotal ({totalItems} {totalItems === 1 ? 'item' : 'items'}):</span>
-                <span className="text-lg font-semibold text-emerald-900">
-                  R {subtotal.toLocaleString('en-ZA')}
-                </span>
+                <span className="text-lg font-semibold text-emerald-900">R {subtotal.toLocaleString('en-ZA')}</span>
               </div>
               <div className="border-t border-emerald-100 pt-4 mb-4">
                 <p className="text-sm text-emerald-600 flex items-center gap-2">
@@ -855,26 +760,18 @@ export default function CartPage() {
                 </p>
               </div>
               <div className="flex flex-col gap-3">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                   onClick={clearCart}
                   className="w-full py-3 px-6 border border-emerald-200 text-emerald-700 rounded-full hover:bg-emerald-50 transition font-medium"
                 >
                   Clear Cart
                 </motion.button>
-                <Link
-                  href="/checkout"
-                  className="w-full py-3 px-6 bg-emerald-600 text-white text-center rounded-full hover:bg-emerald-700 transition font-medium shadow-md"
-                >
+                <Link href="/checkout" className="w-full py-3 px-6 bg-emerald-600 text-white text-center rounded-full hover:bg-emerald-700 transition font-medium shadow-md">
                   Proceed to Checkout
                 </Link>
               </div>
               <div className="mt-4 text-center">
-                <Link
-                  href="/shop"
-                  className="text-emerald-600 hover:text-emerald-700 underline text-sm"
-                >
+                <Link href="/shop" className="text-emerald-600 hover:text-emerald-700 underline text-sm">
                   Continue Shopping
                 </Link>
               </div>
