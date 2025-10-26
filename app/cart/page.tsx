@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
@@ -110,9 +110,24 @@ function AuthModal({ onClose, initialLogin = true }: { onClose: () => void; init
   const [authPassword, setAuthPassword] = useState("");
   const [isLogin, setIsLogin] = useState(initialLogin);
   const [authLoading, setAuthLoading] = useState(false);
-  const auth = getAuth(firestore.app);
+  const [auth, setAuth] = useState<any>(null);
+
+  // Initialize auth dynamically
+  useEffect(() => {
+    import('firebase/auth').then(({ getAuth }) => {
+      setAuth(getAuth(firestore.app));
+    });
+  }, []);
 
   const handleAuth = async () => {
+    if (!auth) {
+      toast({
+        title: "Error",
+        description: "Authentication not initialized.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!authEmail || !authPassword) {
       toast({
         title: "Error",
@@ -151,6 +166,14 @@ function AuthModal({ onClose, initialLogin = true }: { onClose: () => void; init
   };
 
   const handleGoogle = async () => {
+    if (!auth) {
+      toast({
+        title: "Error",
+        description: "Authentication not initialized.",
+        variant: "destructive",
+      });
+      return;
+    }
     setAuthLoading(true);
     try {
       await signInWithPopup(auth, new GoogleAuthProvider());
@@ -221,7 +244,7 @@ function AuthModal({ onClose, initialLogin = true }: { onClose: () => void; init
           </div>
           <button
             onClick={handleAuth}
-            disabled={authLoading}
+            disabled={authLoading || !auth}
             className="w-full rounded-2xl px-6 py-3 bg-emerald-600 text-white font-medium shadow hover:bg-emerald-700 disabled:opacity-50"
           >
             {authLoading ? "Processing..." : isLogin ? "Log In" : "Sign Up"}
@@ -234,7 +257,7 @@ function AuthModal({ onClose, initialLogin = true }: { onClose: () => void; init
           </button>
           <button
             onClick={handleGoogle}
-            disabled={authLoading}
+            disabled={authLoading || !auth}
             className="w-full rounded-2xl px-6 py-3 border text-emerald-950 hover:bg-emerald-50"
           >
             Log in with Google
@@ -281,7 +304,28 @@ export default function CartPage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const { toast, toasts } = useToast();
-  const auth = getAuth(firestore.app);
+  const [auth, setAuth] = useState<any>(null);
+
+  // Initialize auth dynamically
+  useEffect(() => {
+    Promise.all([import('firebase/auth'), import('firebase/app')])
+      .then(([{ getAuth }, { setLogLevel }]) => {
+        const authInstance = getAuth(firestore.app);
+        // If available, enable library-wide debug logging
+        if (typeof setLogLevel === 'function') {
+          setLogLevel('debug');
+        }
+        setAuth(authInstance);
+      })
+      .catch((err) => {
+        console.error('Failed to initialize Firebase Auth:', err);
+        toast({
+          title: "Error",
+          description: "Failed to initialize authentication.",
+          variant: "destructive",
+        });
+      });
+  }, [toast]);
 
   // Firestore and LocalStorage Helpers
   const USER_ID_KEY = "cart-user-id";
@@ -337,7 +381,6 @@ export default function CartPage() {
     setLoading(true);
     try {
       if (!user) {
-        // No user - show auth modal
         setShowAuthModal(true);
         setCartItems([]);
         setAuthChecked(true);
@@ -348,18 +391,15 @@ export default function CartPage() {
       const userId = user.uid;
       const storedItems = await readCart(userId);
 
-      // Check if there's an anonymous cart to merge
       const anonUserId = localStorage.getItem(USER_ID_KEY);
       if (anonUserId && anonUserId !== user.uid) {
         const anonItems = await readCart(anonUserId);
         const mergedMap = new Map<string, { id: string; qty: number }>();
         
-        // Add authenticated user's items
         storedItems.forEach((item) => {
           mergedMap.set(item.id, { ...item });
         });
         
-        // Merge anonymous items
         anonItems.forEach((item) => {
           const existing = mergedMap.get(item.id);
           if (existing) {
@@ -371,7 +411,7 @@ export default function CartPage() {
         
         const mergedItems = Array.from(mergedMap.values());
         await writeCart(user.uid, mergedItems);
-        await writeCart(anonUserId, []); // Clear anonymous cart
+        await writeCart(anonUserId, []);
         localStorage.setItem(USER_ID_KEY, user.uid);
         
         setCartItems(mergedItems.map((item) => ({
@@ -411,12 +451,13 @@ export default function CartPage() {
 
   // Initialize auth state and load cart
   useEffect(() => {
+    if (!auth) return;
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       await loadCartItems(user);
     });
     return unsubscribe;
-  }, []);
+  }, [auth]);
 
   // Listen for cart updates
   useEffect(() => {
@@ -538,11 +579,10 @@ export default function CartPage() {
       <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white py-12">
         <ToastComponent toasts={toasts} />
         <AnimatePresence>
-          {showAuthModal && <AuthModal onClose={() => {}} />}
+          {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
         </AnimatePresence>
         
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          {/* Breadcrumbs */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -623,11 +663,10 @@ export default function CartPage() {
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white py-12">
       <ToastComponent toasts={toasts} />
       <AnimatePresence>
-        {showAuthModal && <AuthModal onClose={() => {}} />}
+        {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
       </AnimatePresence>
       
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        {/* Breadcrumbs */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -722,7 +761,6 @@ export default function CartPage() {
           </motion.div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Cart Items */}
             <div className="lg:col-span-2">
               <motion.div
                 initial={{ opacity: 0 }}
@@ -798,7 +836,6 @@ export default function CartPage() {
               </motion.div>
             </div>
 
-            {/* Cart Summary */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
