@@ -12,6 +12,8 @@ import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
+  setPersistence,
+  inMemoryPersistence,
 } from 'firebase/auth';
 import type { FirebaseError } from 'firebase/app';
 import { firestore } from '../lib/firebase-client';
@@ -67,22 +69,18 @@ interface Toast {
   description?: string;
   variant?: "default" | "destructive";
 }
-
 function useToast() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toast = useCallback(
     ({ title, description, variant = "default" }: Omit<Toast, "id">) => {
       const id = uuidv4();
       setToasts((prev) => [...prev, { id, title, description, variant }]);
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 3000);
+      setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
     },
     []
   );
   return { toast, toasts };
 }
-
 function ToastComponent({ toasts }: { toasts: Toast[] }) {
   return (
     <div className="fixed bottom-4 right-4 space-y-2 z-50">
@@ -108,7 +106,6 @@ function ToastComponent({ toasts }: { toasts: Toast[] }) {
 
 /* =================== Auth Error Formatting =================== */
 const FRIENDLY_AUTH_MESSAGES: Record<string, string> = {
-  // SDK codes (err.code)
   'auth/invalid-email': 'Please enter a valid email address.',
   'auth/missing-password': 'Please enter your password.',
   'auth/user-not-found': 'No account exists with that email.',
@@ -119,7 +116,6 @@ const FRIENDLY_AUTH_MESSAGES: Record<string, string> = {
   'auth/network-request-failed': 'Network error. Check your connection and try again.',
   'auth/popup-closed-by-user': 'The sign-in popup was closed before completing.',
   'auth/popup-blocked': 'The sign-in popup was blocked by your browser.',
-  // Server REST messages
   'EMAIL_NOT_FOUND': 'No account exists with that email.',
   'INVALID_PASSWORD': 'Incorrect password. Please try again.',
   'USER_DISABLED': 'This account has been disabled.',
@@ -129,20 +125,13 @@ const FRIENDLY_AUTH_MESSAGES: Record<string, string> = {
   'API_KEY_INVALID': 'This API key is invalid for Authentication.',
   'CONFIGURATION_NOT_FOUND': 'Auth is not enabled for this project or API key.',
 };
-
 function formatFirebaseAuthError(e: unknown) {
   const err = e as FirebaseError & {
-    customData?: {
-      _tokenResponse?: {
-        error?: { message?: string }
-      }
-    }
+    customData?: { _tokenResponse?: { error?: { message?: string } } };
   };
-
   const sdkCode = err?.code || '';
   const serverMessage = err?.customData?._tokenResponse?.error?.message || '';
   const fallback = err?.message || 'Authentication failed.';
-
   const friendly =
     FRIENDLY_AUTH_MESSAGES[sdkCode] ||
     FRIENDLY_AUTH_MESSAGES[serverMessage] ||
@@ -159,14 +148,14 @@ function formatFirebaseAuthError(e: unknown) {
 
   return {
     title: 'Authentication Error',
-    description:
-      friendly + (serverMessage && !FRIENDLY_AUTH_MESSAGES[serverMessage] ? ` (${serverMessage})` : ''),
+    description: friendly + (serverMessage && !FRIENDLY_AUTH_MESSAGES[serverMessage] ? ` (${serverMessage})` : ''),
     sdkCode,
     serverMessage,
   };
 }
 
 /* ========================= Auth Modal ========================= */
+// NOTE: Modal cannot be closed by clicking the backdrop; user must log in.
 function AuthModal({
   onClose,
   initialLogin = true,
@@ -182,14 +171,20 @@ function AuthModal({
   const [authLoading, setAuthLoading] = useState(false);
   const [auth, setAuth] = useState<any>(null);
 
-  // Initialize auth dynamically
   useEffect(() => {
-    import('firebase/auth').then(({ getAuth }) => {
-      setAuth(getAuth(firestore.app));
-    }).catch((err) => {
-      console.error('Failed to lazy-load Firebase Auth:', err);
-    });
-  }, []);
+    // Initialize Auth and force in-memory persistence (clears on reload)
+    const boot = async () => {
+      try {
+        const authInstance = getAuth(firestore.app);
+        await setPersistence(authInstance, inMemoryPersistence);
+        setAuth(authInstance);
+      } catch (err) {
+        console.error('Failed to init Firebase Auth:', err);
+        toast({ title: "Error", description: "Failed to initialize authentication.", variant: "destructive" });
+      }
+    };
+    boot();
+  }, [toast]);
 
   const handleAuth = async () => {
     if (!auth) {
@@ -211,7 +206,7 @@ function AuthModal({
       }
       setAuthEmail("");
       setAuthPassword("");
-      onClose();
+      onClose(); // modal closes only after successful auth
     } catch (e) {
       const info = formatFirebaseAuthError(e);
       toast({ title: info.title, description: info.description, variant: "destructive" });
@@ -239,9 +234,10 @@ function AuthModal({
   };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-      onClick={onClose}
+      // NO onClick close on overlay → user must authenticate
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
@@ -256,7 +252,7 @@ function AuthModal({
           </h2>
         </div>
         <p className="text-emerald-900/70 mb-6">
-          You must {isLogin ? "log in" : "sign up"} to view your cart and orders.
+          You must {isLogin ? "log in" : "sign up"} to continue.
         </p>
         <div className="space-y-4">
           <div>
@@ -309,20 +305,8 @@ type Product = { id: string; name: string; price: number; currency: string; img:
 type CartItem = Product & { qty: number };
 
 const CATALOG: Record<string, Product> = {
-  "growth-100": {
-    id: "growth-100",
-    name: "Hair Growth Oil · 100ml",
-    price: 300,
-    currency: "R",
-    img: "/products/hair-growth-oil-100ml.png",
-  },
-  "detox-60": {
-    id: "detox-60",
-    name: "Scalp Detox Oil · 60ml",
-    price: 260,
-    currency: "R",
-    img: "/products/scalp-detox-oil-60ml.png",
-  },
+  "growth-100": { id: "growth-100", name: "Hair Growth Oil · 100ml", price: 300, currency: "R", img: "/products/hair-growth-oil-100ml.png" },
+  "detox-60": { id: "detox-60", name: "Scalp Detox Oil · 60ml", price: 260, currency: "R", img: "/products/scalp-detox-oil-60ml.png" },
 };
 
 /* ========================= Page ========================= */
@@ -335,44 +319,33 @@ export default function CartPage() {
   const { toast, toasts } = useToast();
   const [auth, setAuth] = useState<any>(null);
 
-  // Initialize auth dynamically with optional SDK logging
+  // Initialize Auth with in-memory persistence at page level too,
+  // so even if modal hasn't mounted yet we still enforce "login every reload".
   useEffect(() => {
-    Promise.all([import('firebase/auth'), import('firebase/app')])
-      .then(([{ getAuth }, { setLogLevel }]) => {
+    const boot = async () => {
+      try {
         const authInstance = getAuth(firestore.app);
-        if (typeof setLogLevel === 'function') setLogLevel('debug');
+        await setPersistence(authInstance, inMemoryPersistence);
         setAuth(authInstance);
-      })
-      .catch((err) => {
-        console.error('Failed to initialize Firebase Auth:', err);
+      } catch (err) {
+        console.error('Failed to initialize Firebase Auth (page):', err);
         toast({ title: "Error", description: "Failed to initialize authentication.", variant: "destructive" });
-      });
+      }
+    };
+    boot();
   }, [toast]);
 
   // Firestore helpers
-  const USER_ID_KEY = "cart-user-id";
   const CART_PATH = (userId: string) => `carts/${userId}`;
-
-  function getUserId(): string | null {
-    if (currentUser) return currentUser.uid;
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem(USER_ID_KEY);
-  }
 
   function parseCart(raw: unknown): Array<{ id: string; qty: number }> {
     if (!Array.isArray(raw)) return [];
     const valid: Array<{ id: string; qty: number }> = [];
     for (const item of raw) {
-      if (
-        typeof item === "object" &&
-        item !== null &&
-        "id" in item &&
-        "qty" in item &&
-        typeof (item as any).id === "string" &&
-        typeof (item as any).qty === "number" &&
-        (item as any).qty > 0
-      ) {
-        valid.push({ id: (item as any).id, qty: Math.floor((item as any).qty) });
+      if (typeof item === "object" && item && "id" in item && "qty" in item) {
+        const id = (item as any).id;
+        const qty = (item as any).qty;
+        if (typeof id === "string" && typeof qty === "number" && qty > 0) valid.push({ id, qty: Math.floor(qty) });
       }
     }
     return valid;
@@ -381,8 +354,8 @@ export default function CartPage() {
   async function readCart(userId: string): Promise<Array<{ id: string; qty: number }>> {
     try {
       const docRef = doc(firestore, CART_PATH(userId));
-      const docSnap = await getDoc(docRef);
-      return docSnap.exists() ? parseCart((docSnap.data() as any).items) : [];
+      const snap = await getDoc(docRef);
+      return snap.exists() ? parseCart((snap.data() as any).items) : [];
     } catch (err) {
       console.error("Error reading cart:", err);
       toast({ title: "Error", description: "Failed to load cart.", variant: "destructive" });
@@ -390,7 +363,7 @@ export default function CartPage() {
     }
   }
 
-  async function writeCart(userId: string, items: Array<{ id: string; qty: number }>): Promise<void> {
+  async function writeCart(userId: string, items: Array<{ id: string; qty: number }>) {
     try {
       const docRef = doc(firestore, CART_PATH(userId));
       await setDoc(docRef, { items, updatedAt: Date.now() }, { merge: true });
@@ -411,52 +384,18 @@ export default function CartPage() {
         return;
       }
 
-      const userId = user.uid;
-      const storedItems = await readCart(userId);
-
-      const anonUserId = typeof window !== 'undefined' ? localStorage.getItem(USER_ID_KEY) : null;
-      if (anonUserId && anonUserId !== user.uid) {
-        const anonItems = await readCart(anonUserId);
-        const mergedMap = new Map<string, { id: string; qty: number }>();
-
-        storedItems.forEach((item) => mergedMap.set(item.id, { ...item }));
-        anonItems.forEach((item) => {
-          const existing = mergedMap.get(item.id);
-          if (existing) existing.qty += item.qty;
-          else mergedMap.set(item.id, { ...item });
-        });
-
-        const mergedItems = Array.from(mergedMap.values());
-        await writeCart(user.uid, mergedItems);
-        await writeCart(anonUserId, []);
-        if (typeof window !== 'undefined') localStorage.setItem(USER_ID_KEY, user.uid);
-
-        setCartItems(
-          mergedItems.map((item) => ({
-            ...(CATALOG[item.id] || {
-              id: item.id,
-              name: `Product ${item.id}`,
-              price: item.id === 'growth-100' ? 300 : 260,
-              currency: 'R',
-              img: '/products/hair-growth-oil-100ml.png',
-            }),
-            qty: item.qty,
-          }))
-        );
-      } else {
-        const items = storedItems.map((item) => ({
-          ...(CATALOG[item.id] || {
-            id: item.id,
-            name: `Product ${item.id}`,
-            price: item.id === 'growth-100' ? 300 : 260,
-            currency: 'R',
-            img: '/products/hair-growth-oil-100ml.png',
-          }),
-          qty: item.qty,
-        }));
-        setCartItems(items);
-      }
-
+      const storedItems = await readCart(user.uid);
+      const items = storedItems.map((item) => ({
+        ...(CATALOG[item.id] || {
+          id: item.id,
+          name: `Product ${item.id}`,
+          price: item.id === 'growth-100' ? 300 : 260,
+          currency: 'R',
+          img: '/products/hair-growth-oil-100ml.png',
+        }),
+        qty: item.qty,
+      }));
+      setCartItems(items);
       setShowAuthModal(false);
     } catch (error) {
       console.error('Error loading cart:', error);
@@ -468,22 +407,15 @@ export default function CartPage() {
     }
   };
 
-  // Initialize auth state and load cart
+  // Require auth before showing cart content
   useEffect(() => {
     if (!auth) return;
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       await loadCartItems(user);
     });
-    return unsubscribe;
+    return unsub;
   }, [auth]);
-
-  // Listen for cart updates
-  useEffect(() => {
-    const handleCartUpdate = () => { loadCartItems(currentUser); };
-    window.addEventListener('cartUpdated', handleCartUpdate);
-    return () => { window.removeEventListener('cartUpdated', handleCartUpdate); };
-  }, [currentUser]);
 
   const updateQuantity = (id: string, newQty: number) => {
     if (!currentUser) {
@@ -492,20 +424,20 @@ export default function CartPage() {
       return;
     }
     if (newQty < 1) return;
-    const updatedItems = cartItems.map((item) => item.id === id ? { ...item, qty: newQty } : item);
-    setCartItems(updatedItems);
-    saveCart(updatedItems);
+    const updated = cartItems.map((it) => (it.id === id ? { ...it, qty: newQty } : it));
+    setCartItems(updated);
+    saveCart(updated);
   };
 
   const removeItem = (id: string) => {
     if (!currentUser) {
       setShowAuthModal(true);
       toast({ title: "Authentication Required", description: "Please log in to modify your cart.", variant: "destructive" });
-    return;
+      return;
     }
-    const updatedItems = cartItems.filter((item) => item.id !== id);
-    setCartItems(updatedItems);
-    saveCart(updatedItems);
+    const updated = cartItems.filter((it) => it.id !== id);
+    setCartItems(updated);
+    saveCart(updated);
   };
 
   const saveCart = async (items: CartItem[]) => {
@@ -514,12 +446,9 @@ export default function CartPage() {
       return;
     }
     try {
-      const userId = currentUser.uid;
-      const storedItems = items.map((item) => ({ id: item.id, qty: item.qty }));
-      await writeCart(userId, storedItems);
-      window.dispatchEvent(new Event('cartUpdated'));
-    } catch (error) {
-      console.error('Error saving cart:', error);
+      await writeCart(currentUser.uid, items.map((i) => ({ id: i.id, qty: i.qty })));
+    } catch (e) {
+      console.error('Error saving cart:', e);
       toast({ title: "Error", description: "Failed to save cart.", variant: "destructive" });
     }
   };
@@ -532,11 +461,9 @@ export default function CartPage() {
     }
     setCartItems([]);
     try {
-      const userId = currentUser.uid;
-      await writeCart(userId, []);
-      window.dispatchEvent(new Event('cartUpdated'));
-    } catch (error) {
-      console.error('Error clearing cart:', error);
+      await writeCart(currentUser.uid, []);
+    } catch (e) {
+      console.error('Error clearing cart:', e);
       toast({ title: "Error", description: "Failed to clear cart.", variant: "destructive" });
     }
   };
@@ -567,7 +494,12 @@ export default function CartPage() {
       <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white py-12">
         <ToastComponent toasts={toasts} />
         <AnimatePresence>
-          {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} toast={toast} />}
+          {showAuthModal && (
+            <AuthModal
+              onClose={() => setShowAuthModal(false)} // closes only after successful login
+              toast={toast}
+            />
+          )}
         </AnimatePresence>
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
@@ -628,7 +560,12 @@ export default function CartPage() {
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white py-12">
       <ToastComponent toasts={toasts} />
       <AnimatePresence>
-        {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} toast={toast} />}
+        {showAuthModal && (
+          <AuthModal
+            onClose={() => setShowAuthModal(false)} // closes only after successful login
+            toast={toast}
+          />
+        )}
       </AnimatePresence>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
