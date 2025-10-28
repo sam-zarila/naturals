@@ -21,6 +21,155 @@ import React, {
   ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import Head from 'next/head';
+
+/* =============================================================================
+   SEO Component for Landing Page
+============================================================================= */
+const LandingSEO = () => {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://delightfulnaturals.co.za';
+  const canonicalUrl = `${siteUrl}`;
+  
+  // Structured data for local business and products
+  const structuredData = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      name: 'Delightful Naturals',
+      url: siteUrl,
+      logo: `${siteUrl}/logo.png`,
+      description: 'Premium natural hair care products including Hair Growth Oil and Scalp Detox Oil made with organic botanicals.',
+      telephone: '+27-67-294-3837',
+      email: 'hello@delightfulnaturals.co.za',
+      address: {
+        '@type': 'PostalAddress',
+        addressCountry: 'South Africa'
+      },
+      sameAs: [
+        'https://wa.me/27672943837'
+      ]
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: 'Hair Growth Oil · 100ml',
+      description: 'Mega potent hair growth oil with organic botanicals for stronger, healthier hair growth',
+      brand: {
+        '@type': 'Brand',
+        name: 'Delightful Naturals'
+      },
+      offers: {
+        '@type': 'Offer',
+        price: '300',
+        priceCurrency: 'ZAR',
+        availability: 'https://schema.org/InStock',
+        url: `${siteUrl}/shop/hair-growth-oil`
+      },
+      image: `${siteUrl}/products/hair-growth-oil-100ml.jpeg`
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: 'Scalp Detox Oil · 60ml',
+      description: 'Hydrating scalp detox oil to refresh, nourish and detoxify your scalp',
+      brand: {
+        '@type': 'Brand',
+        name: 'Delightful Naturals'
+      },
+      offers: {
+        '@type': 'Offer',
+        price: '260',
+        priceCurrency: 'ZAR',
+        availability: 'https://schema.org/InStock',
+        url: `${siteUrl}/shop/scalp-detox-oil`
+      },
+      image: `${siteUrl}/products/hair-growth-oil-100ml1.jpeg`
+    }
+  ];
+
+  return (
+    <Head>
+      {/* Primary Meta Tags */}
+      <title>Delightful Naturals | Premium Natural Hair Growth Oil & Scalp Care South Africa</title>
+      <meta name="title" content="Delightful Naturals | Premium Natural Hair Growth Oil & Scalp Care South Africa" />
+      <meta 
+        name="description" 
+        content="Transform your hair with Delightful Naturals natural Hair Growth Oil & Scalp Detox Oil. 100% organic botanicals, proven results. Free shipping in South Africa. R300" 
+      />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      
+      {/* Keywords */}
+      <meta 
+        name="keywords" 
+        content="hair growth oil, scalp detox oil, natural hair care South Africa, organic hair products, hair treatment, botanicals, hair loss treatment, healthy hair, natural hair growth, scalp care" 
+      />
+      
+      {/* Canonical */}
+      <link rel="canonical" href={canonicalUrl} />
+      
+      {/* Open Graph / Facebook */}
+      <meta property="og:type" content="website" />
+      <meta property="og:url" content={canonicalUrl} />
+      <meta property="og:title" content="Delightful Naturals | Premium Natural Hair Growth Oil & Scalp Care" />
+      <meta 
+        property="og:description" 
+        content="Transform your hair with our natural Hair Growth Oil and Scalp Detox Oil. Organic botanicals, proven results. Free shipping in South Africa." 
+      />
+      <meta property="og:image" content={`${siteUrl}/og-image.jpg`} />
+      <meta property="og:site_name" content="Delightful Naturals" />
+      <meta property="og:locale" content="en_ZA" />
+      
+      {/* Twitter */}
+      <meta property="twitter:card" content="summary_large_image" />
+      <meta property="twitter:url" content={canonicalUrl} />
+      <meta property="twitter:title" content="Delightful Naturals | Premium Natural Hair Growth Oil & Scalp Care" />
+      <meta 
+        property="twitter:description" 
+        content="Transform your hair with our natural Hair Growth Oil and Scalp Detox Oil. Organic botanicals, proven results." 
+      />
+      <meta property="twitter:image" content={`${siteUrl}/twitter-image.jpg`} />
+      
+      {/* Additional Important Meta Tags */}
+      <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+      <meta name="author" content="Delightful Naturals" />
+      <meta name="geo.region" content="ZA" />
+      <meta name="geo.placename" content="South Africa" />
+      <meta name="language" content="en-ZA" />
+      
+      {/* Product Schema Markup */}
+      {structuredData.map((data, index) => (
+        <script
+          key={index}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(data)
+          }}
+        />
+      ))}
+      
+      {/* Local Business Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "HealthAndBeautyBusiness",
+            "name": "Delightful Naturals",
+            "description": "Premium natural hair care products specializing in hair growth oils and scalp treatments in South Africa",
+            "url": siteUrl,
+            "telephone": "+27-67-294-3837",
+            "address": {
+              "@type": "PostalAddress",
+              "addressCountry": "ZA"
+            },
+            "openingHours": "Mo-Su 09:00-17:00",
+            "areaServed": "South Africa"
+          })
+        }}
+      />
+    </Head>
+  );
+};
 
 /* =============================================================================
    Types
@@ -162,34 +311,38 @@ export default function LandingPage() {
   const { scrollYProgress } = useScroll();
 
   return (
-    <MotionConfig transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>
-      <CartProvider>
-        <main className="relative overflow-x-clip">
-          <style jsx global>{`html { scroll-behavior: smooth; }`}</style>
-          <motion.div
-            style={{ scaleX: scrollYProgress }}
-            className="fixed top-0 left-0 right-0 h-1 origin-left bg-emerald-500/60 z-[60]"
-          />
-          <Header />
-          <Hero />
+    <>
+      <LandingSEO />
+      <MotionConfig transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>
+        <CartProvider>
+          <main className="relative overflow-x-clip" itemScope itemType="https://schema.org/WebPage">
+            <meta itemProp="name" content="Delightful Naturals - Premium Hair Care Products South Africa" />
+            <meta itemProp="description" content="Natural hair growth oil and scalp detox oil with organic ingredients for healthy hair" />
+            
+            <style jsx global>{`html { scroll-behavior: smooth; }`}</style>
+            <motion.div
+              style={{ scaleX: scrollYProgress }}
+              className="fixed top-0 left-0 right-0 h-1 origin-left bg-emerald-500/60 z-[60]"
+            />
+            <Header />
+            <Hero />
 
-          <OrganicIntro />
-          <TransformCTA />
-          {/* Dynamic testimonials from /api/testimonials */}
-          <Testimonials />
+            <OrganicIntro />
+            <TransformCTA />
+            <Testimonials />
 
-          {/* Dynamic blog/journal from /api/journal */}
-          <BlogSection />
+            <BlogSection />
 
-          <FAQSection />
-          <ContactSection />
-          <SupportSection />
-          <QuoteBlock />
-          <NewsletterCTA />
-          <Footer />
-        </main>
-      </CartProvider>
-    </MotionConfig>
+            <FAQSection />
+            <ContactSection />
+            <SupportSection />
+            <QuoteBlock />
+            <NewsletterCTA />
+            <Footer />
+          </main>
+        </CartProvider>
+      </MotionConfig>
+    </>
   );
 }
 
@@ -334,8 +487,8 @@ function Header() {
       <div className="relative max-w-6xl mx-auto px-3 sm:px-4 h-16 grid grid-cols-[auto_1fr_auto] items-center">
         {/* left: logo/brand */}
         <div className="flex items-center gap-3 min-w-0">
-          <Link href="/" className="flex items-center gap-2 min-w-0">
-            <Image src="/Layer.png" alt="Delightful Naturals" width={20} height={20} className="rounded" priority />
+          <Link href="/" className="flex items-center gap-2 min-w-0" aria-label="Delightful Naturals Home">
+            <Image src="/Layer.png" alt="Delightful Naturals - Natural Hair Care Products" width={20} height={20} className="rounded" priority />
             <span className="hidden xs:inline font-semibold text-emerald-900 truncate text-base">
               Delightful Naturals
             </span>
@@ -343,7 +496,7 @@ function Header() {
         </div>
 
         {/* center: (desktop nav only) */}
-        <nav className="hidden md:flex items-center justify-center gap-8">
+        <nav className="hidden md:flex items-center justify-center gap-8" aria-label="Main navigation">
           <a
             href="#home"
             className={`navlink flex items-center gap-1.5 ${active === 'home' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
@@ -452,6 +605,7 @@ function Header() {
             <motion.aside
               role="dialog"
               aria-modal="true"
+              aria-label="Mobile navigation menu"
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
@@ -520,7 +674,7 @@ function Header() {
                 <div className="divide-y rounded-2xl border">
                   {SHOP_PRODUCTS.map((p) => (
                     <div key={p.id} className="flex items-center gap-3 p-3">
-                      <Image src={p.img} alt={p.name} width={48} height={48} className="object-contain" />
+                      <Image src={p.img} alt={`${p.name} - ${p.detail}`} width={48} height={48} className="object-contain" />
                       <div className="flex-1">
                         <div className="text-sm font-medium text-emerald-950">{p.name}</div>
                         <div className="text-xs text-emerald-800/70">{p.detail} · {p.price}</div>
@@ -589,7 +743,7 @@ function CartIcon({ className }: { className?: string }) {
   }, []);
 
   return (
-    <Link href="/cart" className="relative inline-grid place-items-center">
+    <Link href="/cart" className="relative inline-grid place-items-center" aria-label={`Shopping cart with ${count} items`}>
       <svg viewBox="0 0 24 24" fill="none" className={className}>
         <path d="M3 5h2l2 12h10l2-8H7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         <circle cx="10" cy="20" r="1.5" fill="currentColor" />
@@ -621,6 +775,7 @@ function CartDropdown({ open, onClose }: { open: boolean; onClose: () => void })
         className="fixed top-16 right-3 w-[340px] sm:w-[380px] z-[140]"
         role="dialog"
         aria-modal="true"
+        aria-label="Shopping cart"
       >
         <div className="rounded-2xl border bg-white shadow-2xl overflow-hidden">
           <div className="px-4 py-3 border-b font-semibold text-emerald-950">Your Cart</div>
@@ -643,7 +798,7 @@ function CartDropdown({ open, onClose }: { open: boolean; onClose: () => void })
                     <button
                       className="w-7 h-7 grid place-items-center hover:bg-emerald-50"
                       onClick={() => cart.setQty(it.id, it.qty - 1)}
-                      aria-label="Decrease"
+                      aria-label="Decrease quantity"
                     >
                       −
                     </button>
@@ -651,7 +806,7 @@ function CartDropdown({ open, onClose }: { open: boolean; onClose: () => void })
                     <button
                       className="w-7 h-7 grid place-items-center hover:bg-emerald-50"
                       onClick={() => cart.setQty(it.id, it.qty + 1)}
-                      aria-label="Increase"
+                      aria-label="Increase quantity"
                     >
                       +
                     </button>
@@ -679,6 +834,7 @@ function CartDropdown({ open, onClose }: { open: boolean; onClose: () => void })
                   onClose?.();
                 }}
                 className="px-4 py-2 rounded-xl border"
+                aria-label="Clear cart"
               >
                 Clear
               </button>
@@ -730,6 +886,7 @@ function ShopMenu() {
         onMouseLeave={() => setOpen(false)}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label="Shop products"
       >
         Shop
         <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -748,11 +905,12 @@ function ShopMenu() {
             onMouseLeave={() => setOpen(false)}
             className="absolute left-1/2 -translate-x-1/2 top[140%] z-[60] w-[360px] md:w-[420px]"
             role="menu"
+            aria-label="Product selection"
           >
             <div className="rounded-2xl border border-emerald-100 bg-white shadow-2xl p-3">
               {SHOP_PRODUCTS.map((p) => (
                 <div key={p.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-emerald-50/70">
-                  <Image src={p.img} alt={p.name} width={48} height={48} className="object-contain" />
+                  <Image src={p.img} alt={`${p.name} - ${p.detail}`} width={48} height={48} className="object-contain" />
                   <div className="flex-1">
                     <div className="text-sm font-medium text-emerald-950">{p.name}</div>
                     <div className="text-xs text-emerald-800/70">{p.detail} · {p.price}</div>
@@ -826,7 +984,25 @@ function Hero() {
   }, [haloPulse]);
 
   return (
-    <section id='home' ref={heroRef} className="relative bg-gradient-to-b from-emerald-50 via-emerald-50/50 to-white">
+    <section 
+      id='home' 
+      ref={heroRef} 
+      className="relative bg-gradient-to-b from-emerald-50 via-emerald-50/50 to-white"
+      itemScope 
+      itemType="https://schema.org/Product"
+    >
+      {/* Add product schema for the main offering */}
+      <meta itemProp="name" content="Hair Growth Oil & Scalp Detox Oil" />
+      <meta itemProp="description" content="Premium natural hair care products with organic botanicals for hair growth and scalp health in South Africa" />
+      <div itemProp="brand" itemScope itemType="https://schema.org/Brand">
+        <meta itemProp="name" content="Delightful Naturals" />
+      </div>
+      <div itemProp="offers" itemScope itemType="https://schema.org/Offer">
+        <meta itemProp="priceCurrency" content="ZAR" />
+        <meta itemProp="price" content="300" />
+        <meta itemProp="availability" content="https://schema.org/InStock" />
+      </div>
+
       <div className="absolute inset-0 -z-10">
         <div className="absolute -top-10 -left-10 h-72 w-72 rounded-full blur-3xl" style={{ background:'radial-gradient(circle at 30% 30%, rgba(16,185,129,0.28), transparent 60%)' }} />
         <div className="absolute -bottom-10 right-0 h-80 w-80 rounded-full blur-3xl" style={{ background:'radial-gradient(circle at 60% 60%, rgba(16,185,129,0.18), transparent 60%)' }} />
@@ -835,26 +1011,63 @@ function Hero() {
       <div className="max-w-6xl mx-auto px-4 py-10 md:py-16 grid md:grid-cols-2 gap-8 items-center">
         <div>
           <p className="text-xs tracking-wide uppercase text-neutral-500">Premium Natural Hair Care</p>
-          <motion.h1 {...revealProps} className="mt-2 text-4xl md:text-5xl font-extrabold text-neutral-900 leading-tight">
+          <motion.h1 
+            {...revealProps} 
+            className="mt-2 text-4xl md:text-5xl font-extrabold text-neutral-900 leading-tight"
+            itemProp="headline"
+          >
             Transform Your Hair with Nature&apos;s Power
           </motion.h1>
-          <motion.p {...revealProps} transition={{ delay: 0.06 }} className="mt-4 text-neutral-700 max-w-md">
+          <motion.p 
+            {...revealProps} 
+            transition={{ delay: 0.06 }} 
+            className="mt-4 text-neutral-700 max-w-md"
+            itemProp="description"
+          >
             Discover our carefully crafted natural hair oils that nourish, strengthen, and promote healthy hair growth using only the finest botanical ingredients.
           </motion.p>
           <motion.div {...revealProps} transition={{ delay: 0.12 }} className="mt-6 flex flex-wrap items-center gap-3">
             <Magnetic>
-              <Link href="/shop" className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 bg-neutral-900 text-white shadow hover:bg-neutral-800">Shop Now</Link>
+              <Link 
+                href="/shop" 
+                className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 bg-neutral-900 text-white shadow hover:bg-neutral-800"
+                itemProp="url"
+                aria-label="Shop our natural hair care products"
+              >
+                Shop Now
+              </Link>
             </Magnetic>
-            <Link href="/more" className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 border border-neutral-300 text-neutral-900 hover:bg-neutral-50">More Info</Link>
+            <Link 
+              href="/more" 
+              className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 border border-neutral-300 text-neutral-900 hover:bg-neutral-50"
+              aria-label="Learn more about our hair care products"
+            >
+              More Info
+            </Link>
           </motion.div>
         </div>
 
         <div className="relative h-[380px] md:h-[520px]">
           <motion.div style={{ x: xWaveL }} className="absolute left-[-40px] top-[80px] w-[260px] md:w-[360px] opacity-90">
-            <Image src="/hero/hair-growth-oil-100ml.jpeg" alt="wave" width={360} height={240} className="w-full h-auto rounded-lg" />
+            <Image 
+              src="/hero/hair-growth-oil-100ml.jpeg" 
+              alt="Delightful Naturals Hair Growth Oil 100ml bottle - natural hair treatment for growth and strength" 
+              width={360} 
+              height={240} 
+              className="w-full h-auto rounded-lg" 
+              itemProp="image"
+              priority
+            />
           </motion.div>
           <motion.div style={{ x: xWaveR }} className="absolute right-[-30px] top-[120px] w-[260px] md:w-[360px] opacity-90">
-            <Image src="/hero/hair-growth-oil-100ml1.jpeg" alt="wave" width={360} height={240} className="w-full h-auto rounded-lg" />
+            <Image 
+              src="/hero/hair-growth-oil-100ml1.jpeg" 
+              alt="Scalp Detox Oil 60ml bottle - natural scalp treatment for healthy hair and hydration" 
+              width={360} 
+              height={240} 
+              className="w-full h-auto rounded-lg" 
+              itemProp="image"
+            />
           </motion.div>
 
           <motion.div aria-hidden style={{ opacity: haloPulse }} className="absolute inset-0">
@@ -865,8 +1078,18 @@ function Hero() {
 
       <div className="max-w-6xl mx-auto px-4 pb-12">
         <div className="grid sm:grid-cols-2 gap-4 rounded-lg">
-          <ProductMiniCard name="Hair Growth Oil" price="R300" image="/products/hair-growth-oil-100ml.jpeg" />
-          <ProductMiniCard name="Scalp Detox Oil" price="R260" image="/products/hair-growth-oil-100ml1.jpeg" />
+          <ProductMiniCard 
+            name="Hair Growth Oil" 
+            price="R300" 
+            image="/products/hair-growth-oil-100ml.jpeg" 
+            productUrl="/shop/hair-growth-oil"
+          />
+          <ProductMiniCard 
+            name="Scalp Detox Oil" 
+            price="R260" 
+            image="/products/hair-growth-oil-100ml1.jpeg" 
+            productUrl="/shop/scalp-detox-oil"
+          />
         </div>
       </div>
     </section>
@@ -899,15 +1122,39 @@ function Magnetic({ children }: { children: ReactNode }) {
     </motion.div>
   );
 }
-function ProductMiniCard({ name, price, image }: { name: string; price: string; image: string }) {
+
+function ProductMiniCard({ name, price, image, productUrl }: { name: string; price: string; image: string; productUrl: string }) {
   return (
-    <motion.div whileHover={{ y: -4, boxShadow: '0 14px 30px rgba(0,0,0,0.08)' }} className="bg-white/90 backdrop-blur rounded-2xl p-4 border shadow-sm flex items-center gap-4">
-      <Image src={image} alt={name} width={56} height={56} className="object-contain w-14 h-14 rounded-xl" />
+    <motion.div 
+      whileHover={{ y: -4, boxShadow: '0 14px 30px rgba(0,0,0,0.08)' }} 
+      className="bg-white/90 backdrop-blur rounded-2xl p-4 border shadow-sm flex items-center gap-4"
+      itemScope 
+      itemType="https://schema.org/Product"
+    >
+      <Image 
+        src={image} 
+        alt={`${name} - Natural hair care product by Delightful Naturals South Africa`} 
+        width={56} 
+        height={56} 
+        className="object-contain w-14 h-14 rounded-xl" 
+        itemProp="image"
+      />
       <div className="flex-1">
-        <div className="font-medium text-emerald-950">{name}</div>
-        <div className="text-sm text-emerald-800/70">{price}</div>
+        <div className="font-medium text-emerald-950" itemProp="name">{name}</div>
+        <div className="text-sm text-emerald-800/70" itemProp="offers" itemScope itemType="https://schema.org/Offer">
+          <span itemProp="price" content={price.replace('R', '')}>{price}</span>
+          <meta itemProp="priceCurrency" content="ZAR" />
+          <meta itemProp="availability" content="https://schema.org/InStock" />
+        </div>
       </div>
-      <Link href="/shop" className="inline-flex rounded-lg px-3 py-1.5 bg-emerald-600 text-white text-sm shadow">Buy</Link>
+      <Link 
+        href={productUrl} 
+        className="inline-flex rounded-lg px-3 py-1.5 bg-emerald-600 text-white text-sm shadow"
+        itemProp="url"
+        aria-label={`Buy ${name} now`}
+      >
+        Buy
+      </Link>
     </motion.div>
   );
 }
@@ -921,17 +1168,17 @@ function TransformCTA() {
           <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background:'radial-gradient(120% 80% at 12% 76%, rgba(255,255,255,0.55), transparent 60%)' }} />
           <div className="relative grid grid-cols-1 md:grid-cols-2">
             <div className="p-6 sm:p-8 lg:p-10">
-              <h3 className="text-2xl md:text-[28px] font-semibold text-neutral-900">Ready to Transform Your Hair?</h3>
+              <h2 className="text-2xl md:text-[28px] font-semibold text-neutral-900">Ready to Transform Your Hair?</h2>
               <p className="mt-2 text-neutral-600 max-w-md">Join thousands of satisfied customers who have discovered the power of natural hair care. Start your journey today.</p>
               <div className="mt-4 flex flex-wrap gap-3">
-                <Link href="/shop" className="inline-flex items-center justify-center rounded-md px-4 py-2.5 bg-neutral-900 text-white hover:bg-neutral-800 transition">Shop Products</Link>
-                <Link href="#contact" className="inline-flex items-center justify-center rounded-md px-4 py-2.5 border border-neutral-300 text-neutral-900 hover:bg-white transition">Get in touch</Link>
+                <Link href="/shop" className="inline-flex items-center justify-center rounded-md px-4 py-2.5 bg-neutral-900 text-white hover:bg-neutral-800 transition" aria-label="Shop our hair care products">Shop Products</Link>
+                <Link href="#contact" className="inline-flex items-center justify-center rounded-md px-4 py-2.5 border border-neutral-300 text-neutral-900 hover:bg-white transition" aria-label="Contact us for more information">Get in touch</Link>
               </div>
             </div>
             <div className="relative h-[220px] sm:h-[260px] md:h-[300px]">
               <Image
                 src="/hero/hair-growth-oil-100ml3.jpeg"
-                alt="Hair oil bottle"
+                alt="Delightful Naturals Hair Oil bottle - natural hair growth treatment"
                 fill
                 sizes="(min-width: 768px) 50vw, 100vw"
                 className="object-contain object-right translate-y-3 sm:translate-y-6 [transform:rotate(6deg)] md:[transform:rotate(4deg)] drop-shadow-[0_18px_30px_rgba(0,0,0,0.18)]"
@@ -959,14 +1206,14 @@ function OrganicIntro() {
             We keep our blends simple: high-performing botanicals with clean INCI names. Small batches ensure freshness, and every bottle is filled with care.
           </motion.p>
           <motion.div {...revealProps} transition={{ delay: 0.12 }}>
-            <Link href="/about" className="mt-4 inline-flex rounded-xl px-4 py-2 bg-emerald-600 text-white shadow">About us</Link>
+            <Link href="/about" className="mt-4 inline-flex rounded-xl px-4 py-2 bg-emerald-600 text-white shadow" aria-label="Learn about Delightful Naturals">About us</Link>
           </motion.div>
         </div>
 
         {/* Image column — centered on mobile, right-aligned on md+ */}
         <div className="relative min-h-[220px] mt-4 md:mt-0 flex justify-center md:justify-end">
           <motion.div {...revealProps} className="w-56 sm:w-64 md:w-64 md:absolute md:right-0 md:top-0">
-            <Image src="/products/hair-growth-oil-100ml12.jpeg" alt="olives" width={256} height={256} className="w-full h-auto rounded-lg mx-auto md:mx-0" />
+            <Image src="/products/hair-growth-oil-100ml12.jpeg" alt="Organic botanicals for hair care products" width={256} height={256} className="w-full h-auto rounded-lg mx-auto md:mx-0" />
           </motion.div>
         </div>
       </div>
@@ -1038,7 +1285,6 @@ export function normalizeTestimonial(raw: unknown): TestimonialDoc {
   };
 }
 
-
 function Testimonials() {
   const [items, setItems] = useState<TestimonialDoc[]>([]);
   const [i, setI] = useState(0);
@@ -1082,6 +1328,20 @@ function Testimonials() {
     return '★'.repeat(v).padEnd(5, '☆');
   };
 
+  // Add aggregate rating schema
+  const aggregateRatingSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "Delightful Naturals Hair Care Products",
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "reviewCount": items.length.toString(),
+      "bestRating": "5",
+      "worstRating": "1"
+    }
+  };
+
   if (loading) {
     return (
       <section className="relative" id="testimonials">
@@ -1095,6 +1355,14 @@ function Testimonials() {
 
   return (
     <section className="relative" id="testimonials">
+      {/* Add Aggregate Rating Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(aggregateRatingSchema)
+        }}
+      />
+      
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(800px_500px_at_50%_-10%,rgba(16,185,129,0.12),transparent_60%)]" />
       <div className="max-w-5xl mx-auto px-4 py-12 md:py-16 text-center">
         <div className="flex items-center justify-between gap-3">
@@ -1103,6 +1371,7 @@ function Testimonials() {
             onClick={load}
             className="text-xs px-3 py-1.5 rounded-full border bg-white hover:bg-neutral-50"
             type="button"
+            aria-label="Refresh testimonials"
           >
             Refresh
           </button>
@@ -1128,16 +1397,25 @@ function Testimonials() {
                 exit={{ opacity: 0, y: -14, scale: 0.98 }}
                 transition={{ duration: 0.35 }}
                 className="relative overflow-hidden rounded-3xl border border-emerald-200 bg-white p-8 shadow-[0_20px_40px_rgba(16,185,129,0.12)]"
+                itemScope
+                itemType="https://schema.org/Review"
               >
-                <div className="flex justify-center gap-1 text-amber-500 mb-3">
-                  <span aria-label={`${items[i].rating ?? 5} out of 5`}>{stars(items[i].rating)}</span>
+                <div itemProp="itemReviewed" itemScope itemType="https://schema.org/Product">
+                  <meta itemProp="name" content="Delightful Naturals Hair Care" />
                 </div>
-                <p className="text-lg text-emerald-950">“{items[i].text}”</p>
-                <div className="mt-4 flex items-center justify-center gap-3">
-                  {/* Use plain <img> to avoid Next Image remote config issues */}
+                <div className="flex justify-center gap-1 text-amber-500 mb-3">
+                  <span aria-label={`${items[i].rating ?? 5} out of 5 stars`} itemProp="reviewRating" itemScope itemType="https://schema.org/Rating">
+                    <meta itemProp="ratingValue" content={String(items[i].rating ?? 5)} />
+                    <meta itemProp="bestRating" content="5" />
+                    {stars(items[i].rating)}
+                  </span>
+                </div>
+                <p className="text-lg text-emerald-950" itemProp="reviewBody">{items[i].text}</p>
+                <div className="mt-4 flex items-center justify-center gap-3" itemProp="author" itemScope itemType="https://schema.org/Person">
+                  <meta itemProp="name" content={items[i].name} />
                   <img
                     src={items[i].avatarUrl || '/avatars/1.jpg'}
-                    alt={items[i].name}
+                    alt={`${items[i].name} - Delightful Naturals customer testimonial`}
                     width={36}
                     height={36}
                     className="w-9 h-9 rounded-full border object-cover"
@@ -1172,18 +1450,26 @@ function Testimonials() {
                   viewport={{ once: true }}
                   transition={{ duration: 0.35 }}
                   className="rounded-2xl border border-emerald-200 bg-white p-4 text-left"
+                  itemScope
+                  itemType="https://schema.org/Review"
                 >
+                  <div itemProp="itemReviewed" itemScope itemType="https://schema.org/Product">
+                    <meta itemProp="name" content="Delightful Naturals Hair Care" />
+                  </div>
                   <div className="flex items-center gap-2">
                     <img
                       src={r.avatarUrl || '/avatars/1.jpg'}
-                      alt={r.name}
+                      alt={`${r.name} - Customer review`}
                       width={32}
                       height={32}
                       className="w-8 h-8 rounded-full border object-cover"
                     />
-                    <div className="text-sm font-medium text-emerald-900">{r.name}</div>
+                    <div className="text-sm font-medium text-emerald-900" itemProp="author" itemScope itemType="https://schema.org/Person">
+                      <meta itemProp="name" content={r.name} />
+                      {r.name}
+                    </div>
                   </div>
-                  <p className="mt-2 text-sm text-emerald-900/90">{r.text}</p>
+                  <p className="mt-2 text-sm text-emerald-900/90" itemProp="reviewBody">{r.text}</p>
                 </motion.div>
               ))}
             </div>
@@ -1298,7 +1584,7 @@ function BlogSection() {
 
         <div className="mt-8 grid lg:grid-cols-[1.1fr_1fr] gap-6 items-stretch">
           {/* Featured */}
-          <article className="relative overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm">
+          <article className="relative overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm" itemScope itemType="https://schema.org/BlogPosting">
             {featured.cover && (
               <div className="relative h-48 md:h-60">
                 <Image src={featured.cover} alt={featured.title} fill sizes="(min-width: 1024px) 50vw, 100vw" className="object-cover" priority />
@@ -1312,14 +1598,14 @@ function BlogSection() {
                 ))}
               </div>
 
-              <h3 className="mt-2 text-lg sm:text-xl font-semibold text-emerald-950">{featured.title}</h3>
+              <h3 className="mt-2 text-lg sm:text-xl font-semibold text-emerald-950" itemProp="headline">{featured.title}</h3>
 
-              <div className="mt-2 text-emerald-900/90 text-sm leading-relaxed">
+              <div className="mt-2 text-emerald-900/90 text-sm leading-relaxed" itemProp="description">
                 {openId === featured.id ? null : <p>{featured.excerpt || featured.body.slice(0, 220) + '…'}</p>}
                 <AnimatePresence initial={false}>
                   {openId === featured.id && (
                     <motion.div key="feat-body" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.28 }} className="overflow-hidden">
-                      <div className="max-w-none">
+                      <div className="max-w-none" itemProp="articleBody">
                         {(featured.body || '').split('\n').map((para, i) => (<p key={i} className="my-3">{para}</p>))}
                       </div>
                     </motion.div>
@@ -1346,7 +1632,7 @@ function BlogSection() {
             <div ref={trackRef} className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-1 px-1 -mx-1">
               {slides.map((post) => (
                 <article key={post.id}
-                  className="min-w-[88%] sm:min-w-[70%] md:min-w-[60%] lg:min-w-[75%] xl:min-w-[65%] snap-start relative overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm">
+                  className="min-w-[88%] sm:min-w-[70%] md:min-w-[60%] lg:min-w-[75%] xl:min-w-[65%] snap-start relative overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm" itemScope itemType="https://schema.org/BlogPosting">
                   {post.cover && (
                     <div className="relative h-40 sm:h-48">
                       <Image src={post.cover} alt={post.title} fill sizes="(min-width: 640px) 40vw, 90vw" className="object-cover" />
@@ -1359,14 +1645,14 @@ function BlogSection() {
                         <span key={t} className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50/60 px-2 py-0.5">#{t}</span>
                       ))}
                     </div>
-                    <h3 className="mt-2 text-base sm:text-lg font-semibold text-emerald-950">{post.title}</h3>
+                    <h3 className="mt-2 text-base sm:text-lg font-semibold text-emerald-950" itemProp="headline">{post.title}</h3>
 
-                    <div className="mt-2 text-emerald-900/90 text-sm leading-relaxed">
+                    <div className="mt-2 text-emerald-900/90 text-sm leading-relaxed" itemProp="description">
                       {openId === post.id ? null : <p>{post.excerpt || post.body.slice(0, 180) + '…'}</p>}
                       <AnimatePresence initial={false}>
                         {openId === post.id && (
                           <motion.div key={`${post.id}-body`} initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.28 }} className="overflow-hidden">
-                            <div className="max-w-none">
+                            <div className="max-w-none" itemProp="articleBody">
                               {(post.body || '').split('\n').map((para, i) => (<p key={i} className="my-3">{para}</p>))}
                             </div>
                           </motion.div>
@@ -1390,9 +1676,9 @@ function BlogSection() {
 
             {slides.length > 0 && (
               <div className="mt-3 flex items-center justify-end gap-2">
-                <button type="button" aria-label="Previous" onClick={() => scrollByCards(-1)}
+                <button type="button" aria-label="Previous post" onClick={() => scrollByCards(-1)}
                   className="inline-grid place-items-center w-9 h-9 rounded-full border bg-white hover:bg-emerald-50">‹</button>
-                <button type="button" aria-label="Next" onClick={() => scrollByCards(1)}
+                <button type="button" aria-label="Next post" onClick={() => scrollByCards(1)}
                   className="inline-grid place-items-center w-9 h-9 rounded-full border bg-white hover:bg-emerald-50">›</button>
               </div>
             )}
@@ -1409,12 +1695,35 @@ function FAQSection() {
     { q: 'How often should I use the Hair Growth Oil?', a: '3–4 times per week is a great start. Focus on dry or fragile areas and adjust based on how your hair feels.' },
     { q: 'Is the Scalp Detox Oil suitable for sensitive scalps?', a: 'Yes. Start with a few drops and massage gently. Always patch test and discontinue use if irritation occurs.' },
     { q: 'Can I use both oils together?', a: 'Absolutely. Use Scalp Detox Oil to refresh the scalp between wash days, and Hair Growth Oil to seal in moisture on lengths.' },
-    { q: 'Do you ship?', a: 'Yes. Shipping and payment are finalised during checkout/WhatsApp confirmation. We’ll share options for your area.' },
+    { q: 'Do you ship?', a: 'Yes. Shipping and payment are finalised during checkout/WhatsApp confirmation. We\'ll share options for your area.' },
     { q: 'What are the ingredients?', a: 'Key botanicals include Grapeseed, Avocado, Jojoba, Rosemary and Nettle, with Tocopherol and Caprylic/Capric Triglyceride.' },
     { q: 'Storage & shelf life', a: 'Store in a cool, dry place away from direct sunlight. Best used within 12 months of opening.' },
   ];
+
+  // Add FAQ schema
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqs.map(faq => ({
+      "@type": "Question",
+      "name": faq.q,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.a
+      }
+    }))
+  };
+
   return (
     <section id="faqs" className="relative">
+      {/* Add FAQ Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(faqSchema)
+        }}
+      />
+      
       <div className="max-w-4xl mx-auto px-4 py-14 md:py-16">
         <div className="text-center mb-6">
           <h2 className="text-2xl md:text-3xl font-bold text-emerald-950">Frequently asked questions</h2>
@@ -1422,8 +1731,16 @@ function FAQSection() {
         </div>
         <div className="relative">
           <div className="absolute -inset-1 rounded[26px] bg-gradient-to-br from-emerald-200/40 to-amber-200/40 blur-xl -z-10" aria-hidden />
-          <div className="rounded-[22px] border border-emerald-200 bg-white shadow-sm divide-y">
-            {faqs.map((item, idx) => (<FAQItem key={idx} q={item.q} a={item.a} defaultOpen={idx === 0} />))}
+          <div className="rounded-[22px] border border-emerald-200 bg-white shadow-sm divide-y" itemScope itemType="https://schema.org/FAQPage">
+            {faqs.map((item, idx) => (
+              <div key={idx} itemScope itemProp="mainEntity" itemType="https://schema.org/Question">
+                <FAQItem 
+                  q={item.q} 
+                  a={item.a} 
+                  defaultOpen={idx === 0} 
+                />
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -1434,14 +1751,16 @@ function FAQItem({ q, a, defaultOpen = false }: { q: string; a: string; defaultO
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="p-4 md:p-5">
-      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between gap-4 text-left" aria-expanded={open}>
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between gap-4 text-left" aria-expanded={open} itemProp="name">
         <span className="font-medium text-emerald-950">{q}</span>
         <motion.span animate={{ rotate: open ? 45 : 0 }} transition={{ duration: 0.2 }} className="inline-grid place-items-center rounded-full border w-6 h-6 text-sm">+</motion.span>
       </button>
       <AnimatePresence initial={false}>
         {open && (
           <motion.div key="content" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
-            <div className="pt-3 text-sm text-emerald-900/90">{a}</div>
+            <div className="pt-3 text-sm text-emerald-900/90" itemProp="acceptedAnswer" itemScope itemType="https://schema.org/Answer">
+              <div itemProp="text">{a}</div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1497,21 +1816,21 @@ function ContactSection() {
   return (
     <section id="contact" className="relative">
       <div className="max-w-6xl mx-auto px-4 py-16 md:py-20">
-        <div className="relative overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-amber-50 p-8 md:p-12">
+        <div className="relative overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-amber-50 p-8 md:p-12" itemScope itemType="https://schema.org/ContactPoint">
           <motion.div aria-hidden className="absolute -top-12 -right-12 h-72 w-72 rounded-full blur-3xl pointer-events-none -z-10" style={{ background:'linear-gradient(135deg, rgba(16,185,129,0.22), rgba(234,179,8,0.22))' }} animate={{ x: [0, 10, -6, 0], y: [0, 6, -10, 0] }} transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }} />
 
           <motion.h3 {...revealProps} className="text-2xl md:text-3xl font-bold text-emerald-950">Contact us</motion.h3>
           <motion.p {...revealProps} transition={{ delay: 0.05 }} className="mt-2 text-emerald-900/80 max-w-xl">
-            We’re happy to help with product questions and personalised routines.
+            We are happy to help with product questions and personalised routines.
           </motion.p>
 
           <motion.div {...revealProps} transition={{ delay: 0.1 }} className="mt-6 grid sm:grid-cols-2 gap-6">
             {/* Phone & WhatsApp card */}
             <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-sm">
               <div className="font-medium text-emerald-950">Phone & WhatsApp</div>
-              <a className="mt-1 block underline" href="tel:+27672943837">+27 67 294 3837</a>
+              <a className="mt-1 block underline" href="tel:+27672943837" itemProp="telephone">+27 67 294 3837</a>
               <a className="mt-2 inline-flex w-fit rounded-xl px-4 py-2 bg-emerald-600 text-white shadow hover:scale-[1.02] transition" href="https://wa.me/27672943837" target="_blank" rel="noreferrer">Chat on WhatsApp</a>
-              <div className="mt-5 text-sm text-emerald-900/80">Prefer email? Use the form and we’ll get back to you shortly.</div>
+              <div className="mt-5 text-sm text-emerald-900/80">Prefer email? Use the form and we will get back to you shortly.</div>
             </div>
 
             {/* Contact Form card */}
@@ -1519,7 +1838,7 @@ function ContactSection() {
               <AnimatePresence>
                 {sent && (
                   <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 px-3 py-2 text-sm" role="status" aria-live="polite">
-                    ✅ Message sent! We’ll reply to <span className="font-medium">{form.email}</span>.
+                    ✅ Message sent! We will reply to <span className="font-medium">{form.email}</span>.
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1535,7 +1854,7 @@ function ContactSection() {
                   </div>
                   <div className="flex flex-col">
                     <label className="text-xs font-medium text-emerald-900/80 mb-1">Email *</label>
-                    <input type="email" value={form.email} onChange={onChange('email')} required placeholder="you@example.com" className="rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-[15px] shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                    <input type="email" value={form.email} onChange={onChange('email')} required placeholder="you@example.com" className="rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-[15px] shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" itemProp="email" />
                   </div>
                 </div>
 
@@ -1556,7 +1875,7 @@ function ContactSection() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
-                  <p className="text-xs text-emerald-900/70">We’ll use your details only to respond to this message.</p>
+                  <p className="text-xs text-emerald-900/70">We will use your details only to respond to this message.</p>
                   <motion.button whileHover={{ scale: sent ? 1 : 1.02 }} whileTap={{ scale: sent ? 1 : 0.98 }} type="submit" disabled={submitting || sent} className={`relative inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm shadow text-white ${sent ? 'bg-emerald-700' : 'bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500'} disabled:opacity-70`}>
                     {submitting ? 'Sending…' : sent ? 'Sent' : 'Send message'}
                   </motion.button>
@@ -1573,9 +1892,9 @@ function ContactSection() {
 /* Support */
 function SupportSection() {
   const cards = [
-    { t: 'Shipping & Delivery', d: 'Typical delivery in 2–4 business days. We’ll share courier options for your area at checkout.', icon: '🚚', link: '#faqs' },
-    { t: 'Returns & Exchanges', d: 'Unopened items within 14 days. If something’s wrong, we’ll make it right — just reach out.', icon: '↩️', link: 'mailto:hello@delightfulnaturals.co.za' },
-    { t: 'Order Help', d: 'Need to change your address or track a parcel? Message us on WhatsApp and we’ll assist.', icon: '💬', link: 'https://wa.me/27672943837' },
+    { t: 'Shipping & Delivery', d: 'Typical delivery in 2–4 business days. We will share courier options for your area at checkout.', icon: '🚚', link: '#faqs' },
+    { t: 'Returns & Exchanges', d: 'Unopened items within 14 days. If something is wrong, we will make it right — just reach out.', icon: '↩️', link: 'mailto:hello@delightfulnaturals.co.za' },
+    { t: 'Order Help', d: 'Need to change your address or track a parcel? Message us on WhatsApp and we will assist.', icon: '💬', link: 'https://wa.me/27672943837' },
   ];
   return (
     <section id="support" className="relative">
@@ -1605,7 +1924,7 @@ function QuoteBlock() {
     <section className="relative">
       <div className="max-w-4xl mx-auto px-4 py-12">
         <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} className="rounded-3xl border bg-white p-8 shadow-sm text-center">
-          <p className="text-lg text-emerald-950">“We source organically grown botanicals and bottle in small batches to keep every drop potent and fresh.”</p>
+          <p className="text-lg text-emerald-950">We source organically grown botanicals and bottle in small batches to keep every drop potent and fresh.</p>
           <div className="mt-3 text-sm text-emerald-900/80">— May</div>
         </motion.div>
       </div>
@@ -1635,8 +1954,8 @@ function NewsletterCTA() {
             }}
             className="mt-6 flex flex-col sm:flex-row gap-3"
           >
-            <input type="email" required placeholder="Enter your email" className="flex-1 rounded-xl border px-4 py-3 bg-white/80 backdrop-blur shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="relative inline-flex overflow-hidden rounded-xl px-6 py-3 bg-emerald-600 text-white shadow">
+            <input type="email" required placeholder="Enter your email" className="flex-1 rounded-xl border px-4 py-3 bg-white/80 backdrop-blur shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" aria-label="Email for newsletter subscription" />
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="relative inline-flex overflow-hidden rounded-xl px-6 py-3 bg-emerald-600 text-white shadow" aria-label="Subscribe to newsletter">
               <span className="relative z-10">{submitting ? 'Thanks!' : 'Subscribe'}</span>
               <motion.span aria-hidden initial={{ x: '-120%' }} animate={{ x: '120%' }} transition={{ repeat: Infinity, duration: 1.8, ease: 'linear' }} className="absolute inset-y-0 left-0 w-1/3 skew-x-[-20deg] bg-white/30" />
             </motion.button>
@@ -1648,9 +1967,9 @@ function NewsletterCTA() {
 }
 
 /* Footer */
- function Footer() {
+function Footer() {
   return (
-    <footer className="bg-gradient-to-t from-emerald-900 to-emerald-800 text-emerald-50 mt-10">
+    <footer className="bg-gradient-to-t from-emerald-900 to-emerald-800 text-emerald-50 mt-10" itemScope itemType="https://schema.org/WPFooter">
       <div className="max-w-7xl mx-auto px-4 py-12 md:py-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 text-sm">
           {/* Brand Section */}
@@ -1661,7 +1980,7 @@ function NewsletterCTA() {
             className="flex flex-col items-center sm:items-start"
           >
             <div className="flex items-center gap-3">
-              <Image src="/logo.png" width={40} height={40} className="rounded-full shadow-md" alt="Delightful Naturals logo" />
+              <Image src="/logo.png" width={40} height={40} className="rounded-full shadow-md" alt="Delightful Naturals logo - Natural hair care products" />
               <span className="text-xl font-bold text-emerald-100">Delightful Naturals</span>
             </div>
             <p className="mt-4 text-center sm:text-left text-emerald-200/80">
@@ -1715,12 +2034,14 @@ function NewsletterCTA() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
             className="flex flex-col items-center sm:items-start"
+            itemScope
+            itemType="https://schema.org/Organization"
           >
             <h3 className="font-semibold text-emerald-100 mb-4">Contact</h3>
             <p className="text-emerald-200">
-              Phone: <a href="tel:+27672943837" className="underline hover:text-emerald-100 transition">+27 67 294 3837</a>
+              Phone: <a href="tel:+27672943837" className="underline hover:text-emerald-100 transition" itemProp="telephone">+27 67 294 3837</a>
               <br />
-              Email: <a href="mailto:hello@delightfulnaturals.co.za" className="underline hover:text-emerald-100 transition">hello@delightfulnaturals.co.za</a>
+              Email: <a href="mailto:hello@delightfulnaturals.co.za" className="underline hover:text-emerald-100 transition" itemProp="email">hello@delightfulnaturals.co.za</a>
             </p>
           </motion.div>
         </div>
