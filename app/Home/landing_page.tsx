@@ -1,4 +1,5 @@
 'use client';
+
 import {
   MotionConfig,
   motion,
@@ -21,6 +22,9 @@ import React, {
 } from 'react';
 import { createPortal } from 'react-dom';
 import Head from 'next/head';
+import { firestore } from '../lib/firebase-client';
+import { collection, onSnapshot } from "firebase/firestore";
+
 /* =============================================================================
    SEO Component for Landing Page
 ============================================================================= */
@@ -50,7 +54,7 @@ const LandingSEO = () => {
       '@context': 'https://schema.org',
       '@type': 'Product',
       name: 'Hair Growth Oil · 100ml',
-      description: 'Mega potent hair growth oil with organic Botanicals for stronger, healthier hair growth',
+      description: 'Mega potent hair growth oil with organic botanicals for stronger, healthier hair growth',
       brand: {
         '@type': 'Brand',
         name: 'Delightful Naturals'
@@ -90,19 +94,19 @@ const LandingSEO = () => {
       <meta name="title" content="Delightful Naturals | Premium Natural Hair Growth Oil & Scalp Care South Africa" />
       <meta
         name="description"
-        content="Transform your hair with Delightful Naturals natural Hair Growth Oil & Scalp Detox Oil. 100% organic botanicals, proven results. Free shipping in South Africa. R300"
+        content="Transform your hair with Delightful Naturals natural Hair Growth Oil & Scalp Detox Oil. 100% organic Botanicals, proven results. Free shipping in South Africa. R300"
       />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
-    
+   
       {/* Keywords */}
       <meta
         name="keywords"
         content="hair growth oil, scalp detox oil, natural hair care South Africa, organic hair products, hair treatment, Botanicals, hair loss treatment, healthy hair, natural hair growth, scalp care"
       />
-    
+   
       {/* Canonical */}
       <link rel="canonical" href={canonicalUrl} />
-    
+   
       {/* Open Graph / Facebook */}
       <meta property="og:type" content="website" />
       <meta property="og:url" content={canonicalUrl} />
@@ -114,7 +118,7 @@ const LandingSEO = () => {
       <meta property="og:image" content={`${siteUrl}/og-image.jpg`} />
       <meta property="og:site_name" content="Delightful Naturals" />
       <meta property="og:locale" content="en_ZA" />
-    
+   
       {/* Twitter */}
       <meta property="twitter:card" content="summary_large_image" />
       <meta property="twitter:url" content={canonicalUrl} />
@@ -124,14 +128,14 @@ const LandingSEO = () => {
         content="Transform your hair with our natural Hair Growth Oil and Scalp Detox Oil. Organic Botanicals, proven results."
       />
       <meta property="twitter:image" content={`${siteUrl}/twitter-image.jpg`} />
-    
+   
       {/* Additional Important Meta Tags */}
       <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
       <meta name="author" content="Delightful Naturals" />
       <meta name="geo.region" content="ZA" />
       <meta name="geo.placename" content="South Africa" />
       <meta name="language" content="en-ZA" />
-    
+   
       {/* Product Schema Markup */}
       {structuredData.map((data, index) => (
         <script
@@ -142,7 +146,7 @@ const LandingSEO = () => {
           }}
         />
       ))}
-    
+   
       {/* Local Business Schema */}
       <script
         type="application/ld+json"
@@ -175,6 +179,8 @@ type Product = {
   price: number;
   currency: 'R';
   img: string;
+  size: string;
+  gallery: string[];
 };
 type CartItem = Product & { qty: number };
 type CartContextValue = {
@@ -185,30 +191,35 @@ type CartContextValue = {
   clear: () => void;
   count: number;
   subtotal: number;
+  products: Record<string, Product>;
 };
 /* =============================================================================
    Cart Catalog + Context (single-file store)
 ============================================================================= */
-const CATALOG: Record<string, Product> = {
-  'growth-100': {
-    id: 'growth-100',
-    name: 'Hair Growth Oil · 100ml',
-    price: 300,
-    currency: 'R',
-    img: '/products/hair-growth-oil-100ml.png',
-  },
-  'detox-60': {
-    id: 'detox-60',
-    name: 'Scalp Detox Oil · 60ml',
-    price: 260,
-    currency: 'R',
-    img: '/products/hair-growth-oil-100ml.png',
-  },
-};
 const CartCtx = createContext<CartContextValue | null>(null);
 function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [products, setProducts] = useState<Record<string, Product>>({});
+  useEffect(() => {
+    const unsub = onSnapshot(collection(firestore, 'products'), (snap) => {
+      const prods: Record<string, Product> = {};
+      snap.forEach((doc) => {
+        const data = doc.data();
+        prods[doc.id] = {
+          id: doc.id,
+          name: data.name || '',
+          price: data.price || 0,
+          currency: 'R',
+          img: data.gallery?.[0] || '/placeholder.png',
+          size: data.size || '',
+          gallery: data.gallery || [],
+        };
+      });
+      setProducts(prods);
+    });
+    return () => unsub();
+  }, []);
   useEffect(() => {
     const loadCart = () => {
       try {
@@ -218,11 +229,11 @@ function CartProvider({ children }: { children: ReactNode }) {
           const cartData = JSON.parse(cartRaw) as Array<{ id: string; qty: number }>;
           const loadedItems: CartItem[] = [];
           for (const item of cartData) {
-            const product = CATALOG[item.id];
+            const product = products[item.id];
             if (product) {
               loadedItems.push({ ...product, qty: item.qty });
             }
-          }
+          };
           setItems(loadedItems);
           console.log('Set items to:', loadedItems);
         } else {
@@ -248,11 +259,10 @@ function CartProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener('storage', onStorageChange);
     return () => window.removeEventListener('storage', onStorageChange);
-  }, []);
+  }, [products]);
   // Save cart to localStorage whenever items change
   useEffect(() => {
     if (!isInitialized) return;
- 
     try {
       if (items.length === 0) {
         localStorage.removeItem('dn-cart');
@@ -267,12 +277,14 @@ function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [items, isInitialized]);
   const add = (id: string, qty = 1) => {
-    const base = CATALOG[id] || {
+    const base = products[id] || {
       id,
       name: 'Product',
       price: 0,
       currency: 'R' as const,
-      img: '/products/hair-growth-oil-100ml.png',
+      img: '/placeholder.png',
+      size: '',
+      gallery: []
     };
     setItems((prev) => {
       const copy = [...prev];
@@ -306,7 +318,7 @@ function CartProvider({ children }: { children: ReactNode }) {
   const count = items.reduce((s, x) => s + x.qty, 0);
   const subtotal = items.reduce((s, x) => s + x.qty * x.price, 0);
   return (
-    <CartCtx.Provider value={{ items, add, setQty, remove, clear, count, subtotal }}>
+    <CartCtx.Provider value={{ items, add, setQty, remove, clear, count, subtotal, products }}>
       {children}
     </CartCtx.Provider>
   );
@@ -369,7 +381,7 @@ export default function LandingPage() {
           <main className="relative overflow-x-clip" itemScope itemType="https://schema.org/WebPage">
             <meta itemProp="name" content="Delightful Naturals - Premium Hair Care Products South Africa" />
             <meta itemProp="description" content="Natural hair growth oil and scalp detox oil with organic ingredients for healthy hair" />
-          
+         
             <style jsx global>{`html { scroll-behavior: smooth; }`}</style>
             <motion.div
               style={{ scaleX: scrollYProgress }}
@@ -400,28 +412,15 @@ const revealProps = {
   viewport: { once: true, margin: '-80px' },
 } as const;
 /* Shared product list for Shop dropdown */
-const SHOP_PRODUCTS: Array<{
-  id: string;
-  name: string;
-  detail: string;
-  price: string;
-  img: string;
-}> = [
-  {
-    id: 'growth-100',
-    name: 'Hair Growth Oil',
-    detail: 'Mega Potent · 100ml',
-    price: 'R300',
-    img: '/products/hair-growth-oil-100ml.png',
-  },
-  {
-    id: 'detox-60',
-    name: 'Scalp Detox Oil',
-    detail: 'Hydration · 60ml',
-    price: 'R260',
-    img: '/products/hair-growth-oil-100ml.png',
-  },
-];
+function getShopProducts(products: Record<string, Product>) {
+  return Object.values(products).map(p => ({
+    id: p.id,
+    name: p.name,
+    detail: p.size,
+    price: `R${p.price}`,
+    img: p.img,
+  }));
+}
 /* =============================================================================
    Header (mobile-beautified) — with hamburger feedback on add-to-cart
 ============================================================================= */
@@ -501,7 +500,7 @@ function Header() {
       if (pingTimer.current) window.clearTimeout(pingTimer.current);
       pingTimer.current = window.setTimeout(() => setMenuPing(false), 1200);
     };
-  
+ 
     window.addEventListener('cart:add', onAdd as EventListener);
     return () => {
       window.removeEventListener('cart:add', onAdd as EventListener);
@@ -511,6 +510,7 @@ function Header() {
   useEffect(() => {
     if (mobileOpen && menuPing) setMenuPing(false);
   }, [mobileOpen, menuPing]);
+  const shopProducts = getShopProducts(cart.products);
   return (
     <motion.header style={headerStyle} className="sticky top-0 z-[80] border-b relative">
       <div className="relative max-w-6xl mx-auto px-3 sm:px-4 h-16 grid grid-cols-[auto_1fr_auto] items-center">
@@ -553,7 +553,7 @@ function Header() {
             <IconLifeBuoy className="w-4 h-4" aria-hidden />
             <span>Support</span>
           </a>
-          <ShopMenu />
+          <ShopMenu shopProducts={shopProducts} />
         </nav>
         {/* right: cart + hamburger */}
         <div className="relative flex items-center justify-end gap-3 justify-self-end -mr-0 sm:-mr-6">
@@ -573,7 +573,7 @@ function Header() {
                 />
                 <span
                   aria-hidden
-                  className="pointer-events-none absolute -top-1.5 -right-1.5 min-w-[18px] h=[18px] px=[3px] rounded-full bg-emerald-600 text-white text-[10px] grid place-items-center"
+                  className="pointer-events-none absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-[3px] rounded-full bg-emerald-600 text-white text-[10px] grid place-items-center"
                 >
                   {cart.count}
                 </span>
@@ -687,7 +687,7 @@ function Header() {
               <div className="px-4 mt-6">
                 <div className="px-1 text-xs uppercase tracking-wide text-emerald-700/70 mb-2">Shop</div>
                 <div className="divide-y rounded-2xl border">
-                  {SHOP_PRODUCTS.map((p) => (
+                  {shopProducts.map((p) => (
                     <div key={p.id} className="flex items-center gap-3 p-3">
                       <Image src={p.img} alt={`${p.name} - ${p.detail}`} width={48} height={48} className="object-contain" />
                       <div className="flex-1">
@@ -702,10 +702,10 @@ function Header() {
               {/* footer ctas */}
               <div className="px-4 pt-4 pb-5 mt-6">
                 <div className="grid grid-cols-2 gap-2">
-                  <Link href="/shop" onClick={() => setMobileOpen(false)} className="inline-flex items-center justify-center rounded-xl px-4 py-3 bg-emerald-600 text-white shadow">
+                  <Link href="/shop" onClick={() => setMobileOpen(false)} className="inline-flex items-center justify-center rounded-full px-6 py-3 bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition shadow-md">
                     Visit Shop
                   </Link>
-                  <a href="https://wa.me/27672943837" target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-xl px-4 py-3 border" onClick={() => setMobileOpen(false)}>
+                  <a href="https://wa.me/27672943837" target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-full px-6 py-3 bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition shadow-md" onClick={() => setMobileOpen(false)}>
                     WhatsApp
                   </a>
                 </div>
@@ -844,7 +844,7 @@ function CartDropdown({ open, onClose }: { open: boolean; onClose: () => void })
 /* =============================================================================
    Shop dropdown (desktop) with + buttons
 ============================================================================= */
-function ShopMenu() {
+function ShopMenu({ shopProducts }: { shopProducts: any[] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -886,12 +886,12 @@ function ShopMenu() {
             transition={{ duration: 0.18 }}
             onMouseEnter={() => setOpen(true)}
             onMouseLeave={() => setOpen(false)}
-            className="absolute left-1/2 -translate-x-1/2 top[140%] z-[60] w-[360px] md:w=[420px]"
+            className="absolute left-1/2 -translate-x-1/2 top-[140%] z-[60] w-[360px] md:w-[420px]"
             role="menu"
             aria-label="Product selection"
           >
             <div className="rounded-2xl border border-emerald-100 bg-white shadow-2xl p-3">
-              {SHOP_PRODUCTS.map((p) => (
+              {shopProducts.map((p) => (
                 <div key={p.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-emerald-50/70">
                   <Image src={p.img} alt={`${p.name} - ${p.detail}`} width={48} height={48} className="object-contain" />
                   <div className="flex-1">
@@ -919,7 +919,7 @@ function AddButton({ productId }: { productId: string }) {
     cart.add(productId, 1); // Use the cart context add method
     setPing(true);
     window.setTimeout(() => setPing(false), 600);
-  
+ 
     // Dispatch event to show cart dropdown and ping menu
     window.dispatchEvent(new CustomEvent('cart:add'));
   };
@@ -946,6 +946,8 @@ function Hero() {
   const xWaveL = useTransform(scrollYProgress, [0, 1], [0, -30]);
   const xWaveR = useTransform(scrollYProgress, [0, 1], [0, 30]);
   const haloPulse = useSpring(useMotionValue(0.7), { stiffness: 40, damping: 12 });
+  const cart = useCart();
+  const shopProducts = getShopProducts(cart.products);
   useEffect(() => {
     const controls = animate(haloPulse, 1, { duration: 2.6, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' });
     return () => controls.stop();
@@ -975,7 +977,7 @@ function Hero() {
       </div>
       <div className="max-w-6xl mx-auto px-4 py-10 md:py-16 grid md:grid-cols-2 gap-8 items-center">
         <div>
-          <p className="text-xs tracking-wide uppercase text-neutral-500">Premium Natural Hair Care</p>
+          <div className="text-xs tracking-wide uppercase text-neutral-500">Premium Natural Hair Care</div>
           <motion.h1
             {...revealProps}
             className="mt-2 text-4xl md:text-5xl font-extrabold text-neutral-900 leading-tight"
@@ -1012,7 +1014,7 @@ function Hero() {
           </motion.div>
         </div>
         <div className="relative h-[380px] md:h-[520px]">
-          <motion.div style={{ x: xWaveL }} className="absolute left-[-40px] top=[80px] w=[260px] md:w=[360px] opacity-90">
+          <motion.div style={{ x: xWaveL }} className="absolute left-[-40px] top-[80px] w-[260px] md:w-[360px] opacity-90">
             <Image
               src="/hero/hair-growth-oil-100ml.jpeg"
               alt="Delightful Naturals Hair Growth Oil 100ml bottle - natural hair treatment for growth and strength"
@@ -1023,7 +1025,7 @@ function Hero() {
               priority
             />
           </motion.div>
-          <motion.div style={{ x: xWaveR }} className="absolute right-[-30px] top=[120px] w=[260px] md:w=[360px] opacity-90">
+          <motion.div style={{ x: xWaveR }} className="absolute right-[-30px] top-[120px] w-[260px] md:w-[360px] opacity-90">
             <Image
               src="/hero/hair-growth-oil-100ml1.jpeg"
               alt="Scalp Detox Oil 60ml bottle - natural scalp treatment for healthy hair and hydration"
@@ -1034,24 +1036,21 @@ function Hero() {
             />
           </motion.div>
           <motion.div aria-hidden style={{ opacity: haloPulse }} className="absolute inset-0">
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w=[320px] h=[220px] rounded-full blur-3xl" style={{ background:'radial-gradient(closest-side, rgba(255,255,255,0.9), transparent)' }} />
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[220px] rounded-full blur-3xl" style={{ background:'radial-gradient(closest-side, rgba(255,255,255,0.9), transparent)' }} />
           </motion.div>
         </div>
       </div>
       <div className="max-w-6xl mx-auto px-4 pb-12">
         <div className="grid sm:grid-cols-2 gap-4 rounded-lg">
-          <ProductMiniCard
-            name="Hair Growth Oil"
-            price="R300"
-            image="/products/hair-growth-oil-100ml.jpeg"
-            productUrl="/shop/hair-growth-oil"
-          />
-          <ProductMiniCard
-            name="Scalp Detox Oil"
-            price="R260"
-            image="/products/hair-growth-oil-100ml1.jpeg"
-            productUrl="/shop/scalp-detox-oil"
-          />
+          {shopProducts.map((p) => (
+            <ProductMiniCard
+              key={p.id}
+              name={p.name}
+              price={p.price}
+              image={p.img}
+              productUrl={`/shop/${p.id}`}
+            />
+          ))}
         </div>
       </div>
     </section>
@@ -1131,7 +1130,7 @@ function TransformCTA() {
               <p className="mt-2 text-neutral-600 max-w-md">Join thousands of satisfied customers who have discovered the power of natural hair care. Start your journey today.</p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <Link href="/shop" className="inline-flex items-center justify-center rounded-md px-4 py-2.5 bg-neutral-900 text-white hover:bg-neutral-800 transition" aria-label="Shop our hair care products">Shop Products</Link>
-                <Link href="#contact" className="inline-flex items-center justify-center rounded-md px-4 py-2.5 border border-neutral-300 text-neutral-900 hover:bg-white transition" aria-label="Contact us for more information">Get in touch</Link>
+                <Link href="#contact" className="inline-flex items-center justify-center rounded-md px-4 py-2.5 border border-neutral-300 text-neutral-900 hover:bg-neutral-50 transition" aria-label="Contact us for more information">Get in touch</Link>
               </div>
             </div>
             <div className="relative h-[220px] sm:h-[260px] md:h-[300px]">
@@ -1154,7 +1153,7 @@ function TransformCTA() {
 function OrganicIntro() {
   return (
     <section className="relative">
-      <div className="absolute inset-0 -z-10 pointer-events-none bg-[radial-gradient(600px_400px_at_50%_20%,rgba(16,185,129,0.08),transparent_60%)]" />
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(600px_400px_at_50%_20%,rgba(16,185,129,0.08),transparent_60%)]" />
       <div className="max-w-6xl mx-auto px-4 py-10 grid md:grid-cols-2 gap-8 items-center">
         <div className="relative">
           <motion.h2 {...revealProps} className="text-2xl md:text-3xl font-bold text-emerald-950">
@@ -1299,8 +1298,8 @@ function Testimonials() {
           __html: JSON.stringify(aggregateRatingSchema)
         }}
       />
-    
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(800px_500px_at_50%_-10%,rgba(16,185,129,0.12),transparent_60%)]" />
+   
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(800px 500px at 50% -10%, rgba(16,185,129,0.12), transparent 60%)]" />
       <div className="max-w-5xl mx-auto px-4 py-12 md:py-16 text-center">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-2xl md:text-3xl font-bold text-emerald-950">What our customers are saying</h2>
@@ -1552,7 +1551,7 @@ function BlogSection() {
             <div ref={trackRef} className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-1 px-1 -mx-1">
               {slides.map((post) => (
                 <article key={post.id}
-                  className="min-w-[88%] sm:min-w=[70%] md:min-w=[60%] lg:min-w=[75%] xl:min-w=[65%] snap-start relative overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm" itemScope itemType="https://schema.org/BlogPosting">
+                  className="min-w-[88%] sm:min-w-[70%] md:min-w-[60%] lg:min-w-[75%] xl:min-w-[65%] snap-start relative overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm" itemScope itemType="https://schema.org/BlogPosting">
                   {post.cover && (
                     <div className="relative h-40 sm:h-48">
                       <Image src={post.cover} alt={post.title} fill sizes="(min-width: 640px) 40vw, 90vw" className="object-cover" />
@@ -1637,14 +1636,14 @@ function FAQSection() {
           __html: JSON.stringify(faqSchema)
         }}
       />
-    
+   
       <div className="max-w-4xl mx-auto px-4 py-14 md:py-16">
         <div className="text-center mb-6">
           <h2 className="text-2xl md:text-3xl font-bold text-emerald-950">Frequently asked questions</h2>
           <p className="mt-2 text-emerald-900/80">Quick answers to common questions.</p>
         </div>
         <div className="relative">
-          <div className="absolute -inset-1 rounded[26px] bg-gradient-to-br from-emerald-200/40 to-amber-200/40 blur-xl -z-10" aria-hidden />
+          <div className="absolute -inset-1 rounded-[26px] bg-gradient-to-br from-emerald-200/40 to-amber-200/40 blur-xl -z-10" aria-hidden />
           <div className="rounded-[22px] border border-emerald-200 bg-white shadow-sm divide-y" itemScope itemType="https://schema.org/FAQPage">
             {faqs.map((item, idx) => (
               <div key={idx} itemScope itemProp="mainEntity" itemType="https://schema.org/Question">
