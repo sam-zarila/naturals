@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -134,7 +135,6 @@ function OrderHistoryBody() {
   const { toast, toasts } = useToast();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ totalOrders: 0, successful: 0, failed: 0, averageValue: 0 });
 
   // 🔴 Switched to a real-time listener so status updates from Admin reflect instantly
   useEffect(() => {
@@ -149,17 +149,8 @@ function OrderHistoryBody() {
     const unsubscribe = onSnapshot(
       q,
       (snap) => {
-        const rows: any[] = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+        const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setOrders(rows);
-
-        // Calculate stats
-        const totalOrders = rows.length;
-        const successful = rows.filter(o => o.status === 'delivered').length;
-        const failed = rows.filter(o => o.status === 'failed').length;
-        const totalValue = rows.reduce((sum, o) => sum + (o.totals?.grandTotal ?? 0), 0);
-        const averageValue = totalOrders > 0 ? totalValue / totalOrders : 0;
-
-        setStats({ totalOrders, successful, failed, averageValue });
         setLoading(false);
       },
       (err) => {
@@ -190,7 +181,7 @@ function OrderHistoryBody() {
         {/* Breadcrumbs */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-6">
           <nav aria-label="Breadcrumb" className="bg-gradient-to-b from-emerald-50/60 to-white border-b">
-            <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="max-w-6xl mx-auto px-4 py-3">
               <ol className="flex flex-wrap items-center gap-1.5">
                 <li>
                   <Link
@@ -233,49 +224,11 @@ function OrderHistoryBody() {
                   </span>
                 </li>
               </ol>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => window.history.back()} 
-                  className="p-1 rounded-md hover:bg-emerald-100 transition text-emerald-700"
-                  aria-label="Go back"
-                >
-                  <IconChevron className="w-5 h-5 rotate-180" />
-                </button>
-                <button 
-                  onClick={() => window.history.forward()} 
-                  className="p-1 rounded-md hover:bg-emerald-100 transition text-emerald-700"
-                  aria-label="Go forward"
-                >
-                  <IconChevron className="w-5 h-5" />
-                </button>
-              </div>
             </div>
           </nav>
         </motion.div>
 
         <h1 className="text-3xl font-bold text-emerald-900 mb-8">Order History</h1>
-
-        <div className="rounded-2xl border bg-white shadow-sm p-6 mb-8">
-          <h2 className="text-xl font-semibold text-emerald-950 mb-4">Summary</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-sm text-emerald-900/80">Total Orders</p>
-              <p className="text-2xl font-bold">{stats.totalOrders}</p>
-            </div>
-            <div>
-              <p className="text-sm text-emerald-900/80">Successful</p>
-              <p className="text-2xl font-bold text-green-600">{stats.successful}</p>
-            </div>
-            <div>
-              <p className="text-sm text-emerald-900/80">Failed</p>
-              <p className="text-2xl font-bold text-red-600">{stats.failed}</p>
-            </div>
-            <div>
-              <p className="text-sm text-emerald-900/80">Average Order Value</p>
-              <p className="text-2xl font-bold">R{stats.averageValue.toFixed(2)}</p>
-            </div>
-          </div>
-        </div>
 
         {orders.length === 0 ? (
           <div className="rounded-2xl border bg-white shadow-sm p-6 text-center">
@@ -295,19 +248,10 @@ function OrderHistoryBody() {
 
               const status: string = String(order.status || 'pending');
               const progressPct =
-                status === 'failed' ? 0 :
                 status === 'pending' ? 25 :
                 status === 'processing' ? 50 :
                 status === 'shipped' ? 75 :
                 100;
-
-              const badgeClass =
-                status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                status === 'shipped' ? 'bg-indigo-100 text-indigo-800' :
-                status === 'delivered' ? 'bg-green-100 text-green-800' :
-                status === 'failed' ? 'bg-red-100 text-red-800' :
-                'bg-gray-100 text-gray-800';
 
               return (
                 <div key={order.id} className="rounded-2xl border bg-white shadow-sm p-4 md:p-6">
@@ -319,7 +263,13 @@ function OrderHistoryBody() {
                       </p>
                     </div>
                     <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${badgeClass}`}
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                        status === 'shipped' ? 'bg-indigo-100 text-indigo-800' :
+                        status === 'delivered' ? 'bg-green-100 text-green-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}
                     >
                       {status.charAt(0).toUpperCase() + status.slice(1)}
                     </span>
@@ -365,20 +315,14 @@ function OrderHistoryBody() {
                   <div className="mt-4">
                     <h3 className="font-medium text-emerald-950 mb-2">Order Progress:</h3>
                     <div className="flex justify-between text-sm">
-                      {status === 'failed' ? (
-                        <span className="text-red-600 w-full text-center">Order Failed</span>
-                      ) : (
-                        <>
-                          <span className={status === 'pending' ? 'text-emerald-600' : 'text-emerald-900/50'}>Pending</span>
-                          <span className={status === 'processing' ? 'text-emerald-600' : 'text-emerald-900/50'}>Processing</span>
-                          <span className={status === 'shipped' ? 'text-emerald-600' : 'text-emerald-900/50'}>Shipped</span>
-                          <span className={status === 'delivered' ? 'text-emerald-600' : 'text-emerald-900/50'}>Delivered</span>
-                        </>
-                      )}
+                      <span className={status === 'pending' ? 'text-emerald-600' : 'text-emerald-900/50'}>Pending</span>
+                      <span className={status === 'processing' ? 'text-emerald-600' : 'text-emerald-900/50'}>Processing</span>
+                      <span className={status === 'shipped' ? 'text-emerald-600' : 'text-emerald-900/50'}>Shipped</span>
+                      <span className={status === 'delivered' ? 'text-emerald-600' : 'text-emerald-900/50'}>Delivered</span>
                     </div>
                     <div className="mt-2 h-2 bg-emerald-100 rounded-full overflow-hidden">
                       <div
-                        className={`h-full transition-all ${status === 'failed' ? 'bg-red-600' : 'bg-emerald-600'}`}
+                        className="h-full bg-emerald-600 transition-all"
                         style={{ width: `${progressPct}%` }}
                       />
                     </div>

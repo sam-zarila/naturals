@@ -1,5 +1,4 @@
 'use client';
-
 import {
   MotionConfig,
   motion,
@@ -22,14 +21,12 @@ import React, {
 } from 'react';
 import { createPortal } from 'react-dom';
 import Head from 'next/head';
-
 /* =============================================================================
    SEO Component for Landing Page
 ============================================================================= */
 const LandingSEO = () => {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://delightfulnaturals.co.za';
   const canonicalUrl = `${siteUrl}`;
-  
   // Structured data for local business and products
   const structuredData = [
     {
@@ -38,7 +35,7 @@ const LandingSEO = () => {
       name: 'Delightful Naturals',
       url: siteUrl,
       logo: `${siteUrl}/logo.png`,
-      description: 'Premium natural hair care products including Hair Growth Oil and Scalp Detox Oil made with organic botanicals.',
+      description: 'Premium natural hair care products including Hair Growth Oil and Scalp Detox Oil made with organic Botanicals.',
       telephone: '+27-67-294-3837',
       email: 'hello@delightfulnaturals.co.za',
       address: {
@@ -53,7 +50,7 @@ const LandingSEO = () => {
       '@context': 'https://schema.org',
       '@type': 'Product',
       name: 'Hair Growth Oil · 100ml',
-      description: 'Mega potent hair growth oil with organic botanicals for stronger, healthier hair growth',
+      description: 'Mega potent hair growth oil with organic Botanicals for stronger, healthier hair growth',
       brand: {
         '@type': 'Brand',
         name: 'Delightful Naturals'
@@ -86,56 +83,55 @@ const LandingSEO = () => {
       image: `${siteUrl}/products/hair-growth-oil-100ml1.jpeg`
     }
   ];
-
   return (
     <Head>
       {/* Primary Meta Tags */}
       <title>Delightful Naturals | Premium Natural Hair Growth Oil & Scalp Care South Africa</title>
       <meta name="title" content="Delightful Naturals | Premium Natural Hair Growth Oil & Scalp Care South Africa" />
-      <meta 
-        name="description" 
-        content="Transform your hair with Delightful Naturals natural Hair Growth Oil & Scalp Detox Oil. 100% organic botanicals, proven results. Free shipping in South Africa. R300" 
+      <meta
+        name="description"
+        content="Transform your hair with Delightful Naturals natural Hair Growth Oil & Scalp Detox Oil. 100% organic botanicals, proven results. Free shipping in South Africa. R300"
       />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
-      
+    
       {/* Keywords */}
-      <meta 
-        name="keywords" 
-        content="hair growth oil, scalp detox oil, natural hair care South Africa, organic hair products, hair treatment, botanicals, hair loss treatment, healthy hair, natural hair growth, scalp care" 
+      <meta
+        name="keywords"
+        content="hair growth oil, scalp detox oil, natural hair care South Africa, organic hair products, hair treatment, Botanicals, hair loss treatment, healthy hair, natural hair growth, scalp care"
       />
-      
+    
       {/* Canonical */}
       <link rel="canonical" href={canonicalUrl} />
-      
+    
       {/* Open Graph / Facebook */}
       <meta property="og:type" content="website" />
       <meta property="og:url" content={canonicalUrl} />
       <meta property="og:title" content="Delightful Naturals | Premium Natural Hair Growth Oil & Scalp Care" />
-      <meta 
-        property="og:description" 
-        content="Transform your hair with our natural Hair Growth Oil and Scalp Detox Oil. Organic botanicals, proven results. Free shipping in South Africa." 
+      <meta
+        property="og:description"
+        content="Transform your hair with our natural Hair Growth Oil and Scalp Detox Oil. Organic Botanicals, proven results. Free shipping in South Africa."
       />
       <meta property="og:image" content={`${siteUrl}/og-image.jpg`} />
       <meta property="og:site_name" content="Delightful Naturals" />
       <meta property="og:locale" content="en_ZA" />
-      
+    
       {/* Twitter */}
       <meta property="twitter:card" content="summary_large_image" />
       <meta property="twitter:url" content={canonicalUrl} />
       <meta property="twitter:title" content="Delightful Naturals | Premium Natural Hair Growth Oil & Scalp Care" />
-      <meta 
-        property="twitter:description" 
-        content="Transform your hair with our natural Hair Growth Oil and Scalp Detox Oil. Organic botanicals, proven results." 
+      <meta
+        property="twitter:description"
+        content="Transform your hair with our natural Hair Growth Oil and Scalp Detox Oil. Organic Botanicals, proven results."
       />
       <meta property="twitter:image" content={`${siteUrl}/twitter-image.jpg`} />
-      
+    
       {/* Additional Important Meta Tags */}
       <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
       <meta name="author" content="Delightful Naturals" />
       <meta name="geo.region" content="ZA" />
       <meta name="geo.placename" content="South Africa" />
       <meta name="language" content="en-ZA" />
-      
+    
       {/* Product Schema Markup */}
       {structuredData.map((data, index) => (
         <script
@@ -146,7 +142,7 @@ const LandingSEO = () => {
           }}
         />
       ))}
-      
+    
       {/* Local Business Schema */}
       <script
         type="application/ld+json"
@@ -170,7 +166,6 @@ const LandingSEO = () => {
     </Head>
   );
 };
-
 /* =============================================================================
    Types
 ============================================================================= */
@@ -181,9 +176,7 @@ type Product = {
   currency: 'R';
   img: string;
 };
-
 type CartItem = Product & { qty: number };
-
 type CartContextValue = {
   items: CartItem[];
   add: (id: string, qty?: number) => void;
@@ -193,9 +186,6 @@ type CartContextValue = {
   count: number;
   subtotal: number;
 };
-
-type CartAddDetail = { id: string; qty: number };
-
 /* =============================================================================
    Cart Catalog + Context (single-file store)
 ============================================================================= */
@@ -215,12 +205,67 @@ const CATALOG: Record<string, Product> = {
     img: '/products/hair-growth-oil-100ml.png',
   },
 };
-
 const CartCtx = createContext<CartContextValue | null>(null);
-
 function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
-
+  const [isInitialized, setIsInitialized] = useState(false);
+  useEffect(() => {
+    const loadCart = () => {
+      try {
+        const cartRaw = localStorage.getItem('dn-cart');
+        console.log('Loaded cart from storage:', cartRaw ? JSON.parse(cartRaw) : 'null');
+        if (cartRaw) {
+          const cartData = JSON.parse(cartRaw) as Array<{ id: string; qty: number }>;
+          const loadedItems: CartItem[] = [];
+          for (const item of cartData) {
+            const product = CATALOG[item.id];
+            if (product) {
+              loadedItems.push({ ...product, qty: item.qty });
+            }
+          }
+          setItems(loadedItems);
+          console.log('Set items to:', loadedItems);
+        } else {
+          setItems([]);
+          console.log('Set items to empty (no storage)');
+        }
+      } catch (error) {
+        console.error('Error loading cart from localStorage:', error);
+        localStorage.removeItem('dn-cart');
+        setItems([]);
+        console.log('Set items to empty due to error');
+      } finally {
+        setIsInitialized(true);
+      }
+    };
+    loadCart(); // Initial load
+    // Listen for changes from other tabs/console
+    const onStorageChange = (e: StorageEvent) => {
+      if (e.key === 'dn-cart') {
+        console.log('Storage change detected, reloading cart');
+        loadCart(); // Reload from storage if changed
+      }
+    };
+    window.addEventListener('storage', onStorageChange);
+    return () => window.removeEventListener('storage', onStorageChange);
+  }, []);
+  // Save cart to localStorage whenever items change
+  useEffect(() => {
+    if (!isInitialized) return;
+ 
+    try {
+      if (items.length === 0) {
+        localStorage.removeItem('dn-cart');
+        console.log('Removed dn-cart from storage (empty items)');
+      } else {
+        const cartToSave = items.map(item => ({ id: item.id, qty: item.qty }));
+        localStorage.setItem('dn-cart', JSON.stringify(cartToSave));
+        console.log('Saved cart to storage:', cartToSave);
+      }
+    } catch (error) {
+      console.error('Error saving cart to localStorage:', error);
+    }
+  }, [items, isInitialized]);
   const add = (id: string, qty = 1) => {
     const base = CATALOG[id] || {
       id,
@@ -234,23 +279,32 @@ function CartProvider({ children }: { children: ReactNode }) {
       const i = copy.findIndex((x) => x.id === id);
       if (i >= 0) copy[i] = { ...copy[i], qty: copy[i].qty + qty };
       else copy.push({ ...base, qty });
+      console.log('Added item, new items:', copy);
       return copy;
     });
   };
-
   const setQty = (id: string, qty: number) =>
-    setItems((prev) =>
-      prev
+    setItems((prev) => {
+      const newItems = prev
         .map((x) => (x.id === id ? { ...x, qty: Math.max(1, qty) } : x))
-        .filter((x) => x.qty > 0),
-    );
-
-  const remove = (id: string) => setItems((prev) => prev.filter((x) => x.id !== id));
-  const clear = () => setItems([]);
-
+        .filter((x) => x.qty > 0);
+      console.log('Set qty, new items:', newItems);
+      return newItems;
+    });
+  const remove = (id: string) => setItems((prev) => {
+    const newItems = prev.filter((x) => x.id !== id);
+    console.log('Removed item, new items:', newItems);
+    return newItems;
+  });
+  const clear = () => {
+    console.log('Clearing cart');
+    alert('Clearing cart!'); // Temporary alert to confirm click fires - remove after testing
+    localStorage.removeItem('dn-cart'); // Explicitly remove to ensure persistence is cleared
+    setItems([]);
+    console.log('Items after clear:', []);
+  };
   const count = items.reduce((s, x) => s + x.qty, 0);
   const subtotal = items.reduce((s, x) => s + x.qty * x.price, 0);
-
   return (
     <CartCtx.Provider value={{ items, add, setQty, remove, clear, count, subtotal }}>
       {children}
@@ -262,7 +316,6 @@ function useCart(): CartContextValue {
   if (!ctx) throw new Error('useCart must be used within CartProvider');
   return ctx;
 }
-
 /* Icons */
 function IconLeaf({ className }: { className?: string }) {
   return (
@@ -303,13 +356,11 @@ function IconLifeBuoy({ className }: { className?: string }) {
     </svg>
   );
 }
-
 /* =============================================================================
    Page
 ============================================================================= */
 export default function LandingPage() {
   const { scrollYProgress } = useScroll();
-
   return (
     <>
       <LandingSEO />
@@ -318,7 +369,7 @@ export default function LandingPage() {
           <main className="relative overflow-x-clip" itemScope itemType="https://schema.org/WebPage">
             <meta itemProp="name" content="Delightful Naturals - Premium Hair Care Products South Africa" />
             <meta itemProp="description" content="Natural hair growth oil and scalp detox oil with organic ingredients for healthy hair" />
-            
+          
             <style jsx global>{`html { scroll-behavior: smooth; }`}</style>
             <motion.div
               style={{ scaleX: scrollYProgress }}
@@ -326,13 +377,10 @@ export default function LandingPage() {
             />
             <Header />
             <Hero />
-
             <OrganicIntro />
             <TransformCTA />
             <Testimonials />
-
             <BlogSection />
-
             <FAQSection />
             <ContactSection />
             <SupportSection />
@@ -345,14 +393,12 @@ export default function LandingPage() {
     </>
   );
 }
-
 /* Shared reveal helper */
 const revealProps = {
   initial: { opacity: 0, y: 18 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, margin: '-80px' },
 } as const;
-
 /* Shared product list for Shop dropdown */
 const SHOP_PRODUCTS: Array<{
   id: string;
@@ -376,19 +422,16 @@ const SHOP_PRODUCTS: Array<{
     img: '/products/hair-growth-oil-100ml.png',
   },
 ];
-
 /* =============================================================================
    Header (mobile-beautified) — with hamburger feedback on add-to-cart
 ============================================================================= */
 function useSectionSpy(ids: string[]) {
   const [active, setActive] = useState<string>(ids[0] ?? '');
-
   useEffect(() => {
     const els = ids
       .map((id) => document.getElementById(id))
       .filter(Boolean) as HTMLElement[];
     if (els.length === 0) return;
-
     const io = new IntersectionObserver(
       (entries) => {
         const vis = entries
@@ -401,14 +444,11 @@ function useSectionSpy(ids: string[]) {
         threshold: [0, 0.25, 0.5, 0.75, 1],
       },
     );
-
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, [ids.join(',')]);
-
   return active;
 }
-
 function Header() {
   const { scrollY } = useScroll();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -418,11 +458,9 @@ function Header() {
   const pingTimer = useRef<number | null>(null);
   const active = useSectionSpy(['home', 'testimonials', 'faqs', 'contact', 'support']);
   const cart = useCart();
-
   const bg = useTransform(scrollY, [0, 120], ['rgba(235,244,235,0)', 'rgba(255,255,255,0.9)']);
   const border = useTransform(scrollY, [0, 120], ['rgba(0,0,0,0)', 'rgba(0,0,0,0.08)']);
   const shadow = useTransform(scrollY, [0, 140], ['0 0 0 rgba(0,0,0,0)', '0 12px 34px rgba(0,0,0,0.08)']);
-
   // detect mobile to force solid header
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 767px)');
@@ -431,7 +469,6 @@ function Header() {
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
   }, []);
-
   const headerStyle = isMobile
     ? {
         backgroundColor: 'rgba(255,255,255,1)',
@@ -439,7 +476,6 @@ function Header() {
         boxShadow: '0 10px 30px rgba(0,0,0,0.06)',
       }
     : { backgroundColor: bg, borderBottomColor: border, boxShadow: shadow };
-
   // lock body when mobile menu open
   useEffect(() => {
     if (!mobileOpen) return;
@@ -449,7 +485,6 @@ function Header() {
       document.body.style.overflow = prev;
     };
   }, [mobileOpen]);
-
   // Escape to close menu
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -458,30 +493,24 @@ function Header() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-
-  // open mini cart + ping hamburger when items are added
+  // Only show ping when cart is opened, don't automatically add items
   useEffect(() => {
-    const onAdd = (e: Event) => {
-      const evt = e as CustomEvent<CartAddDetail>;
-      const { id, qty = 1 } = (evt.detail || {}) as CartAddDetail;
-      if (id) cart.add(id, qty);
+    const onAdd = () => {
       setCartOpen(true);
-
       setMenuPing(true);
       if (pingTimer.current) window.clearTimeout(pingTimer.current);
       pingTimer.current = window.setTimeout(() => setMenuPing(false), 1200);
     };
+  
     window.addEventListener('cart:add', onAdd as EventListener);
     return () => {
       window.removeEventListener('cart:add', onAdd as EventListener);
       if (pingTimer.current) window.clearTimeout(pingTimer.current);
     };
-  }, [cart]);
-
+  }, []);
   useEffect(() => {
     if (mobileOpen && menuPing) setMenuPing(false);
   }, [mobileOpen, menuPing]);
-
   return (
     <motion.header style={headerStyle} className="sticky top-0 z-[80] border-b relative">
       <div className="relative max-w-6xl mx-auto px-3 sm:px-4 h-16 grid grid-cols-[auto_1fr_auto] items-center">
@@ -494,7 +523,6 @@ function Header() {
             </span>
           </Link>
         </div>
-
         {/* center: (desktop nav only) */}
         <nav className="hidden md:flex items-center justify-center gap-8" aria-label="Main navigation">
           <a
@@ -504,7 +532,6 @@ function Header() {
             <IconLeaf className="w-4 h-4" aria-hidden />
             <span>Home</span>
           </a>
-
           <a
             href="#faqs"
             className={`navlink flex items-center gap-1.5 ${active === 'faqs' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
@@ -512,7 +539,6 @@ function Header() {
             <IconQuestionCircle className="w-4 h-4" aria-hidden />
             <span>FAQ</span>
           </a>
-
           <a
             href="#testimonials"
             className={`navlink flex items-center gap-1.5 ${active === 'testimonials' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
@@ -520,7 +546,6 @@ function Header() {
             <IconStar className="w-4 h-4" aria-hidden />
             <span>Testimonials</span>
           </a>
-
           <a
             href="#support"
             className={`navlink flex items-center gap-1.5 ${active === 'support' ? 'rounded-lg px-2 py-1 -mx-2 bg-emerald-600 text-white' : ''}`}
@@ -528,14 +553,11 @@ function Header() {
             <IconLifeBuoy className="w-4 h-4" aria-hidden />
             <span>Support</span>
           </a>
-
           <ShopMenu />
         </nav>
-
         {/* right: cart + hamburger */}
         <div className="relative flex items-center justify-end gap-3 justify-self-end -mr-0 sm:-mr-6">
           <CartIcon className="w-5 h-5 text-emerald-800/80" />
-
           <motion.button
             whileTap={{ scale: 0.96 }}
             onClick={() => setMobileOpen(true)}
@@ -551,7 +573,7 @@ function Header() {
                 />
                 <span
                   aria-hidden
-                  className="pointer-events-none absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-[3px] rounded-full bg-emerald-600 text-white text-[10px] grid place-items-center"
+                  className="pointer-events-none absolute -top-1.5 -right-1.5 min-w-[18px] h=[18px] px=[3px] rounded-full bg-emerald-600 text-white text-[10px] grid place-items-center"
                 >
                   {cart.count}
                 </span>
@@ -559,11 +581,9 @@ function Header() {
             )}
             <IconMenu className="w-6 h-6 text-emerald-800" />
           </motion.button>
-
           <CartDropdown open={cartOpen} onClose={() => setCartOpen(false)} />
         </div>
       </div>
-
       <style jsx>{`
         .navlink {
           @apply text-sm font-medium text-emerald-800/80 hover:text-emerald-900 relative;
@@ -583,7 +603,6 @@ function Header() {
           width: 100%;
         }
       `}</style>
-
       {/* Mobile Menu */}
       <AnimatePresence initial={false}>
         {mobileOpen && (
@@ -600,7 +619,6 @@ function Header() {
               onClick={() => setMobileOpen(false)}
               className="absolute inset-0 bg-black/25"
             />
-
             {/* right-side drawer */}
             <motion.aside
               role="dialog"
@@ -632,7 +650,6 @@ function Header() {
                     <IconClose className="w-5 h-5" />
                   </button>
                 </div>
-
                 {/* Decorative glow */}
                 <div
                   aria-hidden
@@ -643,7 +660,6 @@ function Header() {
                   }}
                 />
               </div>
-
               {/* quick links */}
               <div className="px-4 mt-4 grid grid-cols-2 gap-3">
                 <a href="#new" onClick={() => setMobileOpen(false)} className="group rounded-2xl border bg-white p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition">
@@ -667,7 +683,6 @@ function Header() {
                   <span className="text-xs text-emerald-800/70 group-hover:text-emerald-700">View →</span>
                 </Link>
               </div>
-
               {/* shop list */}
               <div className="px-4 mt-6">
                 <div className="px-1 text-xs uppercase tracking-wide text-emerald-700/70 mb-2">Shop</div>
@@ -684,7 +699,6 @@ function Header() {
                   ))}
                 </div>
               </div>
-
               {/* footer ctas */}
               <div className="px-4 pt-4 pb-5 mt-6">
                 <div className="grid grid-cols-2 gap-2">
@@ -703,7 +717,6 @@ function Header() {
     </motion.header>
   );
 }
-
 function IconMenu({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
@@ -718,53 +731,30 @@ function IconClose({ className }: { className?: string }) {
     </svg>
   );
 }
-
-/* Cart icon (with count + ping) */
+/* Cart icon (with count + ping) - FIXED VERSION */
 function CartIcon({ className }: { className?: string }) {
-  const [count, setCount] = useState(0);
-  const sync = () => {
-    try {
-      const cartRaw = localStorage.getItem('dn-cart');
-      const cartParsed = cartRaw ? (JSON.parse(cartRaw) as Array<{ id: string; qty: number }>) : [];
-      setCount(cartParsed.reduce((s, x) => s + (x.qty || 0), 0));
-    } catch {
-      setCount(0);
-    }
-  };
-  useEffect(() => {
-    sync();
-    const onAdd = () => sync();
-    window.addEventListener('cart:add', onAdd as EventListener);
-    window.addEventListener('storage', onAdd);
-    return () => {
-      window.removeEventListener('cart:add', onAdd as EventListener);
-      window.removeEventListener('storage', onAdd);
-    };
-  }, []);
-
+  const cart = useCart(); // Use the cart context instead of localStorage
+  console.log('CartIcon render - Current count:', cart.count); // Debug log for icon render
   return (
-    <Link href="/cart" className="relative inline-grid place-items-center" aria-label={`Shopping cart with ${count} items`}>
+    <Link href="/cart" className="relative inline-grid place-items-center" aria-label={`Shopping cart with ${cart.count} items`}>
       <svg viewBox="0 0 24 24" fill="none" className={className}>
         <path d="M3 5h2l2 12h10l2-8H7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         <circle cx="10" cy="20" r="1.5" fill="currentColor" />
         <circle cx="17" cy="20" r="1.5" fill="currentColor" />
       </svg>
-      {count > 0 && (
+      {cart.count > 0 && (
         <span className="absolute -top-2 -right-2 min-w-[20px] h-5 px-1 rounded-full bg-emerald-600 text-white text-[10px] grid place-items-center shadow">
-          {count}
+          {cart.count}
         </span>
       )}
     </Link>
   );
 }
-
 /* Cart dropdown panel */
 function CartDropdown({ open, onClose }: { open: boolean; onClose: () => void }) {
   const cart = useCart();
-
   if (typeof window === 'undefined') return null; // guard SSR
   if (!open) return null;
-
   return createPortal(
     <AnimatePresence>
       <motion.div
@@ -779,7 +769,6 @@ function CartDropdown({ open, onClose }: { open: boolean; onClose: () => void })
       >
         <div className="rounded-2xl border bg-white shadow-2xl overflow-hidden">
           <div className="px-4 py-3 border-b font-semibold text-emerald-950">Your Cart</div>
-
           {cart.items.length === 0 ? (
             <div className="px-4 py-8 text-sm text-emerald-900/70">Your cart is empty.</div>
           ) : (
@@ -815,7 +804,6 @@ function CartDropdown({ open, onClose }: { open: boolean; onClose: () => void })
               ))}
             </div>
           )}
-
           <div className="px-4 py-3 border-t">
             <div className="flex items-center justify-between text-sm">
               <span className="text-emerald-900/80">Subtotal</span>
@@ -841,7 +829,6 @@ function CartDropdown({ open, onClose }: { open: boolean; onClose: () => void })
             </div>
           </div>
         </div>
-
         {/* click-away catcher */}
         <button
           onClick={onClose}
@@ -854,14 +841,12 @@ function CartDropdown({ open, onClose }: { open: boolean; onClose: () => void })
     document.body
   );
 }
-
 /* =============================================================================
    Shop dropdown (desktop) with + buttons
 ============================================================================= */
 function ShopMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
-
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (ref.current && e.target instanceof Node && !ref.current.contains(e.target)) {
@@ -876,7 +861,6 @@ function ShopMenu() {
       document.removeEventListener('keydown', onKey);
     };
   }, []);
-
   return (
     <div ref={ref} className="relative">
       <button
@@ -893,7 +877,6 @@ function ShopMenu() {
           <path d="M5.3 7.3a1 1 0 011.4 0L10 10.59l3.3-3.3a1 1 0 111.4 1.42l-4 4a1 1 0 01-1.4 0l-4-4a1 1 0 010-1.42z" />
         </svg>
       </button>
-
       <AnimatePresence>
         {open && (
           <motion.div
@@ -903,7 +886,7 @@ function ShopMenu() {
             transition={{ duration: 0.18 }}
             onMouseEnter={() => setOpen(true)}
             onMouseLeave={() => setOpen(false)}
-            className="absolute left-1/2 -translate-x-1/2 top[140%] z-[60] w-[360px] md:w-[420px]"
+            className="absolute left-1/2 -translate-x-1/2 top[140%] z-[60] w-[360px] md:w=[420px]"
             role="menu"
             aria-label="Product selection"
           >
@@ -928,34 +911,21 @@ function ShopMenu() {
     </div>
   );
 }
-
-/* Add button used in Shop menus (desktop + mobile) */
+/* Add button used in Shop menus (desktop + mobile) - FIXED VERSION */
 function AddButton({ productId }: { productId: string }) {
   const [ping, setPing] = useState(false);
-
+  const cart = useCart(); // Use the cart context
   const addToCart = () => {
-    const key = 'dn-cart';
-    let cart: Array<{ id: string; qty: number }> = [];
-    try {
-      cart = JSON.parse(localStorage.getItem(key) || '[]') as Array<{ id: string; qty: number }>;
-    } catch {}
-    const i = cart.findIndex((x) => x.id === productId);
-    if (i > -1) cart[i].qty += 1;
-    else cart.push({ id: productId, qty: 1 });
-    localStorage.setItem(key, JSON.stringify(cart));
-
-    try {
-      window.dispatchEvent(new CustomEvent<CartAddDetail>('cart:add', { detail: { id: productId, qty: 1 } }));
-    } catch {}
+    cart.add(productId, 1); // Use the cart context add method
+    setPing(true);
+    window.setTimeout(() => setPing(false), 600);
+  
+    // Dispatch event to show cart dropdown and ping menu
+    window.dispatchEvent(new CustomEvent('cart:add'));
   };
-
   return (
     <button
-      onClick={() => {
-        setPing(true);
-        window.setTimeout(() => setPing(false), 600);
-        addToCart();
-      }}
+      onClick={addToCart}
       className="relative grid place-items-center w-8 h-8 rounded-full border border-emerald-200 text-emerald-700 hover:bg-emerald-600 hover:text-white transition"
       aria-label={`Add ${productId} to cart`}
       title="Add to cart"
@@ -967,7 +937,6 @@ function AddButton({ productId }: { productId: string }) {
     </button>
   );
 }
-
 /* =============================================================================
    HERO
 ============================================================================= */
@@ -977,23 +946,21 @@ function Hero() {
   const xWaveL = useTransform(scrollYProgress, [0, 1], [0, -30]);
   const xWaveR = useTransform(scrollYProgress, [0, 1], [0, 30]);
   const haloPulse = useSpring(useMotionValue(0.7), { stiffness: 40, damping: 12 });
-
   useEffect(() => {
     const controls = animate(haloPulse, 1, { duration: 2.6, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' });
     return () => controls.stop();
   }, [haloPulse]);
-
   return (
-    <section 
-      id='home' 
-      ref={heroRef} 
+    <section
+      id='home'
+      ref={heroRef}
       className="relative bg-gradient-to-b from-emerald-50 via-emerald-50/50 to-white"
-      itemScope 
+      itemScope
       itemType="https://schema.org/Product"
     >
       {/* Add product schema for the main offering */}
       <meta itemProp="name" content="Hair Growth Oil & Scalp Detox Oil" />
-      <meta itemProp="description" content="Premium natural hair care products with organic botanicals for hair growth and scalp health in South Africa" />
+      <meta itemProp="description" content="Premium natural hair care products with organic Botanicals for hair growth and scalp health in South Africa" />
       <div itemProp="brand" itemScope itemType="https://schema.org/Brand">
         <meta itemProp="name" content="Delightful Naturals" />
       </div>
@@ -1002,25 +969,23 @@ function Hero() {
         <meta itemProp="price" content="300" />
         <meta itemProp="availability" content="https://schema.org/InStock" />
       </div>
-
       <div className="absolute inset-0 -z-10">
         <div className="absolute -top-10 -left-10 h-72 w-72 rounded-full blur-3xl" style={{ background:'radial-gradient(circle at 30% 30%, rgba(16,185,129,0.28), transparent 60%)' }} />
         <div className="absolute -bottom-10 right-0 h-80 w-80 rounded-full blur-3xl" style={{ background:'radial-gradient(circle at 60% 60%, rgba(16,185,129,0.18), transparent 60%)' }} />
       </div>
-
       <div className="max-w-6xl mx-auto px-4 py-10 md:py-16 grid md:grid-cols-2 gap-8 items-center">
         <div>
           <p className="text-xs tracking-wide uppercase text-neutral-500">Premium Natural Hair Care</p>
-          <motion.h1 
-            {...revealProps} 
+          <motion.h1
+            {...revealProps}
             className="mt-2 text-4xl md:text-5xl font-extrabold text-neutral-900 leading-tight"
             itemProp="headline"
           >
             Transform Your Hair with Nature&apos;s Power
           </motion.h1>
-          <motion.p 
-            {...revealProps} 
-            transition={{ delay: 0.06 }} 
+          <motion.p
+            {...revealProps}
+            transition={{ delay: 0.06 }}
             className="mt-4 text-neutral-700 max-w-md"
             itemProp="description"
           >
@@ -1028,8 +993,8 @@ function Hero() {
           </motion.p>
           <motion.div {...revealProps} transition={{ delay: 0.12 }} className="mt-6 flex flex-wrap items-center gap-3">
             <Magnetic>
-              <Link 
-                href="/shop" 
+              <Link
+                href="/shop"
                 className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 bg-neutral-900 text-white shadow hover:bg-neutral-800"
                 itemProp="url"
                 aria-label="Shop our natural hair care products"
@@ -1037,8 +1002,8 @@ function Hero() {
                 Shop Now
               </Link>
             </Magnetic>
-            <Link 
-              href="/more" 
+            <Link
+              href="/more"
               className="inline-flex items-center justify-center rounded-lg px-5 py-2.5 border border-neutral-300 text-neutral-900 hover:bg-neutral-50"
               aria-label="Learn more about our hair care products"
             >
@@ -1046,48 +1011,45 @@ function Hero() {
             </Link>
           </motion.div>
         </div>
-
         <div className="relative h-[380px] md:h-[520px]">
-          <motion.div style={{ x: xWaveL }} className="absolute left-[-40px] top-[80px] w-[260px] md:w-[360px] opacity-90">
-            <Image 
-              src="/hero/hair-growth-oil-100ml.jpeg" 
-              alt="Delightful Naturals Hair Growth Oil 100ml bottle - natural hair treatment for growth and strength" 
-              width={360} 
-              height={240} 
-              className="w-full h-auto rounded-lg" 
+          <motion.div style={{ x: xWaveL }} className="absolute left-[-40px] top=[80px] w=[260px] md:w=[360px] opacity-90">
+            <Image
+              src="/hero/hair-growth-oil-100ml.jpeg"
+              alt="Delightful Naturals Hair Growth Oil 100ml bottle - natural hair treatment for growth and strength"
+              width={360}
+              height={240}
+              className="w-full h-auto rounded-lg"
               itemProp="image"
               priority
             />
           </motion.div>
-          <motion.div style={{ x: xWaveR }} className="absolute right-[-30px] top-[120px] w-[260px] md:w-[360px] opacity-90">
-            <Image 
-              src="/hero/hair-growth-oil-100ml1.jpeg" 
-              alt="Scalp Detox Oil 60ml bottle - natural scalp treatment for healthy hair and hydration" 
-              width={360} 
-              height={240} 
-              className="w-full h-auto rounded-lg" 
+          <motion.div style={{ x: xWaveR }} className="absolute right-[-30px] top=[120px] w=[260px] md:w=[360px] opacity-90">
+            <Image
+              src="/hero/hair-growth-oil-100ml1.jpeg"
+              alt="Scalp Detox Oil 60ml bottle - natural scalp treatment for healthy hair and hydration"
+              width={360}
+              height={240}
+              className="w-full h-auto rounded-lg"
               itemProp="image"
             />
           </motion.div>
-
           <motion.div aria-hidden style={{ opacity: haloPulse }} className="absolute inset-0">
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[220px] rounded-full blur-3xl" style={{ background:'radial-gradient(closest-side, rgba(255,255,255,0.9), transparent)' }} />
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w=[320px] h=[220px] rounded-full blur-3xl" style={{ background:'radial-gradient(closest-side, rgba(255,255,255,0.9), transparent)' }} />
           </motion.div>
         </div>
       </div>
-
       <div className="max-w-6xl mx-auto px-4 pb-12">
         <div className="grid sm:grid-cols-2 gap-4 rounded-lg">
-          <ProductMiniCard 
-            name="Hair Growth Oil" 
-            price="R300" 
-            image="/products/hair-growth-oil-100ml.jpeg" 
+          <ProductMiniCard
+            name="Hair Growth Oil"
+            price="R300"
+            image="/products/hair-growth-oil-100ml.jpeg"
             productUrl="/shop/hair-growth-oil"
           />
-          <ProductMiniCard 
-            name="Scalp Detox Oil" 
-            price="R260" 
-            image="/products/hair-growth-oil-100ml1.jpeg" 
+          <ProductMiniCard
+            name="Scalp Detox Oil"
+            price="R260"
+            image="/products/hair-growth-oil-100ml1.jpeg"
             productUrl="/shop/scalp-detox-oil"
           />
         </div>
@@ -1095,7 +1057,6 @@ function Hero() {
     </section>
   );
 }
-
 /* Magnetic hover for CTAs */
 function Magnetic({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -1122,21 +1083,20 @@ function Magnetic({ children }: { children: ReactNode }) {
     </motion.div>
   );
 }
-
 function ProductMiniCard({ name, price, image, productUrl }: { name: string; price: string; image: string; productUrl: string }) {
   return (
-    <motion.div 
-      whileHover={{ y: -4, boxShadow: '0 14px 30px rgba(0,0,0,0.08)' }} 
+    <motion.div
+      whileHover={{ y: -4, boxShadow: '0 14px 30px rgba(0,0,0,0.08)' }}
       className="bg-white/90 backdrop-blur rounded-2xl p-4 border shadow-sm flex items-center gap-4"
-      itemScope 
+      itemScope
       itemType="https://schema.org/Product"
     >
-      <Image 
-        src={image} 
-        alt={`${name} - Natural hair care product by Delightful Naturals South Africa`} 
-        width={56} 
-        height={56} 
-        className="object-contain w-14 h-14 rounded-xl" 
+      <Image
+        src={image}
+        alt={`${name} - Natural hair care product by Delightful Naturals South Africa`}
+        width={56}
+        height={56}
+        className="object-contain w-14 h-14 rounded-xl"
         itemProp="image"
       />
       <div className="flex-1">
@@ -1147,8 +1107,8 @@ function ProductMiniCard({ name, price, image, productUrl }: { name: string; pri
           <meta itemProp="availability" content="https://schema.org/InStock" />
         </div>
       </div>
-      <Link 
-        href={productUrl} 
+      <Link
+        href={productUrl}
         className="inline-flex rounded-lg px-3 py-1.5 bg-emerald-600 text-white text-sm shadow"
         itemProp="url"
         aria-label={`Buy ${name} now`}
@@ -1158,7 +1118,6 @@ function ProductMiniCard({ name, price, image, productUrl }: { name: string; pri
     </motion.div>
   );
 }
-
 /* CTA block */
 function TransformCTA() {
   return (
@@ -1191,7 +1150,6 @@ function TransformCTA() {
     </section>
   );
 }
-
 /* Organic intro (mobile-centered image) */
 function OrganicIntro() {
   return (
@@ -1203,25 +1161,23 @@ function OrganicIntro() {
             We Source Organically Grown Ingredients From Family Owned Farms
           </motion.h2>
           <motion.p {...revealProps} transition={{ delay: 0.06 }} className="mt-3 text-emerald-900/80">
-            We keep our blends simple: high-performing botanicals with clean INCI names. Small batches ensure freshness, and every bottle is filled with care.
+            We keep our blends simple: high-performing Botanicals with clean INCI names. Small batches ensure freshness, and every bottle is filled with care.
           </motion.p>
           <motion.div {...revealProps} transition={{ delay: 0.12 }}>
             <Link href="/about" className="mt-4 inline-flex rounded-xl px-4 py-2 bg-emerald-600 text-white shadow" aria-label="Learn about Delightful Naturals">About us</Link>
           </motion.div>
         </div>
-
         {/* Image column — centered on mobile, right-aligned on md+ */}
         <div className="relative min-h-[220px] mt-4 md:mt-0 flex justify-center md:justify-end">
           <motion.div {...revealProps} className="w-56 sm:w-64 md:w-64 md:absolute md:right-0 md:top-0">
-            <Image src="/products/hair-growth-oil-100ml12.jpeg" alt="Organic botanicals for hair care products" width={256} height={256} className="w-full h-auto rounded-lg mx-auto md:mx-0" />
+            <Image src="/products/hair-growth-oil-100ml12.jpeg" alt="Organic Botanicals for hair care products" width={256} height={256} className="w-full h-auto rounded-lg mx-auto md:mx-0" />
           </motion.div>
         </div>
       </div>
     </section>
   );
 }
-
-/* =====================  TESTIMONIALS (Dynamic - UPDATED)  ===================== */
+/* ===================== TESTIMONIALS (Dynamic - UPDATED) ===================== */
 type TestimonialDoc = {
   id: string;
   name: string;
@@ -1231,41 +1187,32 @@ type TestimonialDoc = {
   avatarUrl?: string;
   createdAt?: string | number | null;
 };
-
 export function normalizeTestimonial(raw: unknown): TestimonialDoc {
   const obj: Record<string, unknown> =
     raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-
   const isTimestamp = (v: unknown): v is { toMillis: () => number } =>
     typeof v === "object" && v !== null && typeof (v as { toMillis?: unknown }).toMillis === "function";
-
   const ratingNum = Number(obj["rating"]);
-
   const id =
     typeof obj["id"] === "string" && (obj["id"] as string).trim()
       ? (obj["id"] as string)
       : Math.random().toString(36).slice(2);
-
   const name =
     (typeof obj["name"] === "string" && (obj["name"] as string)) ||
     (typeof obj["author"] === "string" && (obj["author"] as string)) ||
     "Anonymous";
-
   const role =
     (typeof obj["role"] === "string" && (obj["role"] as string)) ||
     (typeof obj["location"] === "string" && (obj["location"] as string)) ||
     "Verified Purchase";
-
   const text =
     (typeof obj["text"] === "string" && (obj["text"] as string)) ||
     (typeof obj["message"] === "string" && (obj["message"] as string)) ||
     "";
-
   const avatarUrl =
     typeof obj["avatarUrl"] === "string" && (obj["avatarUrl"] as string).trim()
       ? (obj["avatarUrl"] as string)
       : "/avatars/1.jpg";
-
   const ca = obj["createdAt"];
   const createdAt =
     typeof ca === "number" && Number.isFinite(ca)
@@ -1273,7 +1220,6 @@ export function normalizeTestimonial(raw: unknown): TestimonialDoc {
       : isTimestamp(ca)
       ? ca.toMillis()
       : null;
-
   return {
     id: String(id),
     name: String(name),
@@ -1284,13 +1230,11 @@ export function normalizeTestimonial(raw: unknown): TestimonialDoc {
     createdAt,
   };
 }
-
 function Testimonials() {
   const [items, setItems] = useState<TestimonialDoc[]>([]);
   const [i, setI] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const load = async () => {
     setLoading(true);
     setError(null);
@@ -1298,7 +1242,6 @@ function Testimonials() {
       const res = await fetch('/api/testimonials?limit=12', { cache: 'no-store' });
       if (!res.ok) throw new Error(`GET /api/testimonials → ${res.status}`);
       const data = await res.json().catch(() => null);
-
       // Accept either an array or { ok, items }
       const list: unknown = Array.isArray(data) ? data : data?.items;
       const arr = Array.isArray(list) ? list : [];
@@ -1312,22 +1255,18 @@ function Testimonials() {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     load();
   }, []);
-
   useEffect(() => {
     if (items.length <= 1) return;
     const id = window.setInterval(() => setI((v) => (v + 1) % items.length), 4500);
     return () => window.clearInterval(id);
   }, [items.length]);
-
   const stars = (n: number | undefined) => {
     const v = Math.max(1, Math.min(5, Math.floor(n || 5)));
     return '★'.repeat(v).padEnd(5, '☆');
   };
-
   // Add aggregate rating schema
   const aggregateRatingSchema = {
     "@context": "https://schema.org",
@@ -1341,7 +1280,6 @@ function Testimonials() {
       "worstRating": "1"
     }
   };
-
   if (loading) {
     return (
       <section className="relative" id="testimonials">
@@ -1352,7 +1290,6 @@ function Testimonials() {
       </section>
     );
   }
-
   return (
     <section className="relative" id="testimonials">
       {/* Add Aggregate Rating Schema */}
@@ -1362,7 +1299,7 @@ function Testimonials() {
           __html: JSON.stringify(aggregateRatingSchema)
         }}
       />
-      
+    
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(800px_500px_at_50%_-10%,rgba(16,185,129,0.12),transparent_60%)]" />
       <div className="max-w-5xl mx-auto px-4 py-12 md:py-16 text-center">
         <div className="flex items-center justify-between gap-3">
@@ -1376,17 +1313,14 @@ function Testimonials() {
             Refresh
           </button>
         </div>
-
         {error && (
           <div className="mt-4 text-sm text-red-600">
             {error}
           </div>
         )}
-
         {!error && items.length === 0 && (
           <p className="mt-4 text-emerald-900/70">No testimonials yet.</p>
         )}
-
         {!error && items.length > 0 && (
           <div className="mt-8 relative">
             <AnimatePresence mode="wait">
@@ -1428,7 +1362,6 @@ function Testimonials() {
                 </div>
               </motion.div>
             </AnimatePresence>
-
             <div className="mt-4 flex justify-center gap-2">
               {items.map((_, idx) => (
                 <button
@@ -1439,7 +1372,6 @@ function Testimonials() {
                 />
               ))}
             </div>
-
             {/* Mini grid of 3 more */}
             <div className="mt-10 hidden md:grid grid-cols-3 gap-4">
               {items.slice(0, 3).map((r) => (
@@ -1479,8 +1411,7 @@ function Testimonials() {
     </section>
   );
 }
-
-/* =====================  BLOG / JOURNAL (Dynamic)  ===================== */
+/* ===================== BLOG / JOURNAL (Dynamic) ===================== */
 type Post = {
   id: string;
   title: string;
@@ -1512,7 +1443,6 @@ function BlogSection() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const trackRef = useRef<HTMLDivElement | null>(null);
-
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -1533,13 +1463,11 @@ function BlogSection() {
       }
     })();
   }, []);
-
   const scrollByCards = (dir: 1 | -1) => {
     const el = trackRef.current;
     if (!el) return;
     el.scrollBy({ left: dir * (el.clientWidth * 0.9), behavior: 'smooth' });
   };
-
   if (loading) {
     return (
       <section className="relative">
@@ -1556,7 +1484,6 @@ function BlogSection() {
       </section>
     );
   }
-
   if (!posts.length) {
     return (
       <section className="relative">
@@ -1569,9 +1496,7 @@ function BlogSection() {
       </section>
     );
   }
-
   const [featured, ...slides] = posts;
-
   return (
     <section className="relative">
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10"
@@ -1581,7 +1506,6 @@ function BlogSection() {
           <h2 className="text-2xl md:text-3xl font-bold text-emerald-950">From the Journal</h2>
           <p className="mt-2 text-emerald-900/80">Stories, rituals, and science behind stronger roots.</p>
         </div>
-
         <div className="mt-8 grid lg:grid-cols-[1.1fr_1fr] gap-6 items-stretch">
           {/* Featured */}
           <article className="relative overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm" itemScope itemType="https://schema.org/BlogPosting">
@@ -1597,9 +1521,7 @@ function BlogSection() {
                   <span key={t} className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50/60 px-2 py-0.5">#{t}</span>
                 ))}
               </div>
-
               <h3 className="mt-2 text-lg sm:text-xl font-semibold text-emerald-950" itemProp="headline">{featured.title}</h3>
-
               <div className="mt-2 text-emerald-900/90 text-sm leading-relaxed" itemProp="description">
                 {openId === featured.id ? null : <p>{featured.excerpt || featured.body.slice(0, 220) + '…'}</p>}
                 <AnimatePresence initial={false}>
@@ -1612,7 +1534,6 @@ function BlogSection() {
                   )}
                 </AnimatePresence>
               </div>
-
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <button type="button" onClick={() => setOpenId(openId === featured.id ? null : featured.id)} aria-expanded={openId === featured.id}
                   className="relative inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm bg-emerald-600 text-white shadow hover:scale-[1.02] transition">
@@ -1624,7 +1545,6 @@ function BlogSection() {
               </div>
             </div>
           </article>
-
           {/* Carousel */}
           <div className="relative">
             <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white to-transparent z-10 rounded-l-3xl" />
@@ -1632,7 +1552,7 @@ function BlogSection() {
             <div ref={trackRef} className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-1 px-1 -mx-1">
               {slides.map((post) => (
                 <article key={post.id}
-                  className="min-w-[88%] sm:min-w-[70%] md:min-w-[60%] lg:min-w-[75%] xl:min-w-[65%] snap-start relative overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm" itemScope itemType="https://schema.org/BlogPosting">
+                  className="min-w-[88%] sm:min-w=[70%] md:min-w=[60%] lg:min-w=[75%] xl:min-w=[65%] snap-start relative overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm" itemScope itemType="https://schema.org/BlogPosting">
                   {post.cover && (
                     <div className="relative h-40 sm:h-48">
                       <Image src={post.cover} alt={post.title} fill sizes="(min-width: 640px) 40vw, 90vw" className="object-cover" />
@@ -1646,7 +1566,6 @@ function BlogSection() {
                       ))}
                     </div>
                     <h3 className="mt-2 text-base sm:text-lg font-semibold text-emerald-950" itemProp="headline">{post.title}</h3>
-
                     <div className="mt-2 text-emerald-900/90 text-sm leading-relaxed" itemProp="description">
                       {openId === post.id ? null : <p>{post.excerpt || post.body.slice(0, 180) + '…'}</p>}
                       <AnimatePresence initial={false}>
@@ -1659,7 +1578,6 @@ function BlogSection() {
                         )}
                       </AnimatePresence>
                     </div>
-
                     <div className="mt-4 flex flex-wrap items-center gap-3">
                       <button type="button" onClick={() => setOpenId(openId === post.id ? null : post.id)} aria-expanded={openId === post.id}
                         className="relative inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm bg-emerald-600 text-white shadow hover:scale-[1.02] transition">
@@ -1673,7 +1591,6 @@ function BlogSection() {
                 </article>
               ))}
             </div>
-
             {slides.length > 0 && (
               <div className="mt-3 flex items-center justify-end gap-2">
                 <button type="button" aria-label="Previous post" onClick={() => scrollByCards(-1)}
@@ -1688,7 +1605,6 @@ function BlogSection() {
     </section>
   );
 }
-
 /* FAQ */
 function FAQSection() {
   const faqs: Array<{ q: string; a: string }> = [
@@ -1696,10 +1612,9 @@ function FAQSection() {
     { q: 'Is the Scalp Detox Oil suitable for sensitive scalps?', a: 'Yes. Start with a few drops and massage gently. Always patch test and discontinue use if irritation occurs.' },
     { q: 'Can I use both oils together?', a: 'Absolutely. Use Scalp Detox Oil to refresh the scalp between wash days, and Hair Growth Oil to seal in moisture on lengths.' },
     { q: 'Do you ship?', a: 'Yes. Shipping and payment are finalised during checkout/WhatsApp confirmation. We\'ll share options for your area.' },
-    { q: 'What are the ingredients?', a: 'Key botanicals include Grapeseed, Avocado, Jojoba, Rosemary and Nettle, with Tocopherol and Caprylic/Capric Triglyceride.' },
+    { q: 'What are the ingredients?', a: 'Key Botanicals include Grapeseed, Avocado, Jojoba, Rosemary and Nettle, with Tocopherol and Caprylic/Capric Triglyceride.' },
     { q: 'Storage & shelf life', a: 'Store in a cool, dry place away from direct sunlight. Best used within 12 months of opening.' },
   ];
-
   // Add FAQ schema
   const faqSchema = {
     "@context": "https://schema.org",
@@ -1713,7 +1628,6 @@ function FAQSection() {
       }
     }))
   };
-
   return (
     <section id="faqs" className="relative">
       {/* Add FAQ Schema */}
@@ -1723,7 +1637,7 @@ function FAQSection() {
           __html: JSON.stringify(faqSchema)
         }}
       />
-      
+    
       <div className="max-w-4xl mx-auto px-4 py-14 md:py-16">
         <div className="text-center mb-6">
           <h2 className="text-2xl md:text-3xl font-bold text-emerald-950">Frequently asked questions</h2>
@@ -1734,10 +1648,10 @@ function FAQSection() {
           <div className="rounded-[22px] border border-emerald-200 bg-white shadow-sm divide-y" itemScope itemType="https://schema.org/FAQPage">
             {faqs.map((item, idx) => (
               <div key={idx} itemScope itemProp="mainEntity" itemType="https://schema.org/Question">
-                <FAQItem 
-                  q={item.q} 
-                  a={item.a} 
-                  defaultOpen={idx === 0} 
+                <FAQItem
+                  q={item.q}
+                  a={item.a}
+                  defaultOpen={idx === 0}
                 />
               </div>
             ))}
@@ -1767,30 +1681,25 @@ function FAQItem({ q, a, defaultOpen = false }: { q: string; a: string; defaultO
     </div>
   );
 }
-
 /* Contact (modern form) */
 function ContactSection() {
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '', honey: '' });
-
   const onChange =
     (key: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       setForm((f) => ({ ...f, [key]: e.target.value }));
     };
-
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
     if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
       setError('Please fill in your name, email, and message.');
       return;
     }
     if (form.honey) return; // honeypot
-
     setSubmitting(true);
     try {
       const res = await fetch('/api/contact', {
@@ -1798,12 +1707,10 @@ function ContactSection() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
-
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.error || 'Something went wrong.');
       }
-
       setSent(true);
     } catch (err) {
       if (err instanceof Error) setError(err.message);
@@ -1812,18 +1719,15 @@ function ContactSection() {
       setSubmitting(false);
     }
   };
-
   return (
     <section id="contact" className="relative">
       <div className="max-w-6xl mx-auto px-4 py-16 md:py-20">
         <div className="relative overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-amber-50 p-8 md:p-12" itemScope itemType="https://schema.org/ContactPoint">
           <motion.div aria-hidden className="absolute -top-12 -right-12 h-72 w-72 rounded-full blur-3xl pointer-events-none -z-10" style={{ background:'linear-gradient(135deg, rgba(16,185,129,0.22), rgba(234,179,8,0.22))' }} animate={{ x: [0, 10, -6, 0], y: [0, 6, -10, 0] }} transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }} />
-
           <motion.h3 {...revealProps} className="text-2xl md:text-3xl font-bold text-emerald-950">Contact us</motion.h3>
           <motion.p {...revealProps} transition={{ delay: 0.05 }} className="mt-2 text-emerald-900/80 max-w-xl">
             We are happy to help with product questions and personalised routines.
           </motion.p>
-
           <motion.div {...revealProps} transition={{ delay: 0.1 }} className="mt-6 grid sm:grid-cols-2 gap-6">
             {/* Phone & WhatsApp card */}
             <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-sm">
@@ -1832,7 +1736,6 @@ function ContactSection() {
               <a className="mt-2 inline-flex w-fit rounded-xl px-4 py-2 bg-emerald-600 text-white shadow hover:scale-[1.02] transition" href="https://wa.me/27672943837" target="_blank" rel="noreferrer">Chat on WhatsApp</a>
               <div className="mt-5 text-sm text-emerald-900/80">Prefer email? Use the form and we will get back to you shortly.</div>
             </div>
-
             {/* Contact Form card */}
             <div className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-sm">
               <AnimatePresence>
@@ -1843,10 +1746,8 @@ function ContactSection() {
                 )}
               </AnimatePresence>
               {error && <div className="mb-3 rounded-xl border border-red-200 bg-red-50 text-red-900 px-3 py-2 text-sm">{error}</div>}
-
               <form onSubmit={onSubmit} className="space-y-3">
                 <input type="text" tabIndex={-1} autoComplete="off" value={form.honey} onChange={onChange('honey')} className="hidden" />
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="flex flex-col">
                     <label className="text-xs font-medium text-emerald-900/80 mb-1">Full name *</label>
@@ -1857,7 +1758,6 @@ function ContactSection() {
                     <input type="email" value={form.email} onChange={onChange('email')} required placeholder="you@example.com" className="rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-[15px] shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" itemProp="email" />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="flex flex-col">
                     <label className="text-xs font-medium text-emerald-900/80 mb-1">Phone (optional)</label>
@@ -1868,12 +1768,10 @@ function ContactSection() {
                     <input type="text" value={form.subject} onChange={onChange('subject')} placeholder="Question about products" className="rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-[15px] shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                   </div>
                 </div>
-
                 <div className="flex flex-col">
                   <label className="text-xs font-medium text-emerald-900/80 mb-1">Message *</label>
                   <textarea value={form.message} onChange={onChange('message')} required placeholder="Tell us how we can help…" rows={5} className="rounded-xl border border-neutral-200 bg-white/80 px-4 py-3 text-[15px] shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                 </div>
-
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
                   <p className="text-xs text-emerald-900/70">We will use your details only to respond to this message.</p>
                   <motion.button whileHover={{ scale: sent ? 1 : 1.02 }} whileTap={{ scale: sent ? 1 : 0.98 }} type="submit" disabled={submitting || sent} className={`relative inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm shadow text-white ${sent ? 'bg-emerald-700' : 'bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500'} disabled:opacity-70`}>
@@ -1888,7 +1786,6 @@ function ContactSection() {
     </section>
   );
 }
-
 /* Support */
 function SupportSection() {
   const cards = [
@@ -1917,24 +1814,34 @@ function SupportSection() {
     </section>
   );
 }
-
 /* Quote */
 function QuoteBlock() {
   return (
     <section className="relative">
       <div className="max-w-4xl mx-auto px-4 py-12">
         <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} className="rounded-3xl border bg-white p-8 shadow-sm text-center">
-          <p className="text-lg text-emerald-950">We source organically grown botanicals and bottle in small batches to keep every drop potent and fresh.</p>
+          <p className="text-lg text-emerald-950">We source organically grown Botanicals and bottle in small batches to keep every drop potent and fresh.</p>
           <div className="mt-3 text-sm text-emerald-900/80">— May</div>
         </motion.div>
       </div>
     </section>
   );
 }
-
 /* Newsletter CTA */
 function NewsletterCTA() {
   const [submitting, setSubmitting] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+  const [email, setEmail] = useState('');
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    // Mock subscription logic
+    window.setTimeout(() => {
+      setSubmitting(false);
+      setSubscribed(true);
+      setEmail(''); // Clear input
+    }, 1500);
+  };
   return (
     <section className="relative">
       <div className="max-w-6xl mx-auto px-4 py-14">
@@ -1944,28 +1851,48 @@ function NewsletterCTA() {
           <motion.p {...revealProps} transition={{ delay: 0.06 }} className="mt-2 text-emerald-900/80 max-w-xl">
             Tips for healthy hair care, exclusive promos, and new product drops. No spam.
           </motion.p>
-          <motion.form
-            {...revealProps}
-            transition={{ delay: 0.12 }}
-            onSubmit={(e) => {
-              e.preventDefault();
-              setSubmitting(true);
-              window.setTimeout(() => setSubmitting(false), 1500);
-            }}
-            className="mt-6 flex flex-col sm:flex-row gap-3"
-          >
-            <input type="email" required placeholder="Enter your email" className="flex-1 rounded-xl border px-4 py-3 bg-white/80 backdrop-blur shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" aria-label="Email for newsletter subscription" />
-            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="relative inline-flex overflow-hidden rounded-xl px-6 py-3 bg-emerald-600 text-white shadow" aria-label="Subscribe to newsletter">
-              <span className="relative z-10">{submitting ? 'Thanks!' : 'Subscribe'}</span>
-              <motion.span aria-hidden initial={{ x: '-120%' }} animate={{ x: '120%' }} transition={{ repeat: Infinity, duration: 1.8, ease: 'linear' }} className="absolute inset-y-0 left-0 w-1/3 skew-x-[-20deg] bg-white/30" />
-            </motion.button>
-          </motion.form>
+          <motion.div {...revealProps} transition={{ delay: 0.12 }} className="mt-6">
+            <AnimatePresence>
+              {subscribed ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="text-emerald-700 font-medium"
+                >
+                  Subscribed to newsletter
+                </motion.div>
+              ) : (
+                <form onSubmit={onSubmit} className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="email"
+                    required
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="flex-1 rounded-xl border px-4 py-3 bg-white/80 backdrop-blur shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    aria-label="Email for newsletter subscription"
+                  />
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="submit"
+                    disabled={submitting}
+                    className="relative inline-flex overflow-hidden rounded-xl px-6 py-3 bg-emerald-600 text-white shadow disabled:opacity-70"
+                    aria-label="Subscribe to newsletter"
+                  >
+                    <span className="relative z-10">{submitting ? 'Subscribing...' : 'Subscribe'}</span>
+                    <motion.span aria-hidden initial={{ x: '-120%' }} animate={{ x: '120%' }} transition={{ repeat: Infinity, duration: 1.8, ease: 'linear' }} className="absolute inset-y-0 left-0 w-1/3 skew-x-[-20deg] bg-white/30" />
+                  </motion.button>
+                </form>
+              )}
+            </AnimatePresence>
+          </motion.div>
         </div>
       </div>
     </section>
   );
 }
-
 /* Footer */
 function Footer() {
   return (
@@ -1992,7 +1919,6 @@ function Footer() {
               <span className="text-emerald-300">✨</span>
             </div>
           </motion.div>
-
           {/* Quick Links Section */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -2010,7 +1936,6 @@ function Footer() {
               <li><Link href="/shop" className="text-emerald-200 hover:text-emerald-100 transition">Shop</Link></li>
             </ul>
           </motion.div>
-
           {/* Help Section */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -2027,7 +1952,6 @@ function Footer() {
               <li><Link href="/delivery" className="text-emerald-200 hover:text-emerald-100 transition">Delivery Policy</Link></li>
             </ul>
           </motion.div>
-
           {/* Contact Section */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -2045,7 +1969,6 @@ function Footer() {
             </p>
           </motion.div>
         </div>
-
         {/* Bottom Bar */}
         <div className="mt-10 border-t border-emerald-700/50 pt-6 text-center text-xs text-emerald-200/80">
           <p>
