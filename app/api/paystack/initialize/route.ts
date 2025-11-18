@@ -17,8 +17,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Invalid payload' }, { status: 400 });
     }
 
-    // ⚠️ You asked to hard-code keys. Keep SECRET on the server only.
-    const PAYSTACK_SECRET = 'sk_test_26a87b10623002929df848dedee197e3f08d5a8c';
+    
+    const PAYSTACK_SECRET = 'sk_live_ad06df732247dbe8a8167af0dac027ca760cdeae';
 
     // amount must be in the **lowest denomination** (ZAR cents)
     const amountCents = Math.round(body.amountZar * 100);
