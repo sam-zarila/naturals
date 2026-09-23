@@ -65,7 +65,7 @@ const LandingSEO = () => {
         price: '300',
         priceCurrency: 'ZAR',
         availability: 'https://schema.org/InStock',
-        url: `${siteUrl}/shop/hair-growth-oil`
+        url: `${siteUrl}/shop/growth-100`
       },
       image: `${siteUrl}/products/hair-growth-oil-100ml.jpeg`
     },
@@ -83,7 +83,7 @@ const LandingSEO = () => {
         price: '260',
         priceCurrency: 'ZAR',
         availability: 'https://schema.org/InStock',
-        url: `${siteUrl}/shop/scalp-detox-oil`
+        url: `${siteUrl}/shop/detox-60`
       },
       image: `${siteUrl}/products/hair-growth-oil-100ml1.jpeg`
     }

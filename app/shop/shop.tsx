@@ -300,9 +300,9 @@ function pickAt<T>(arr: T[], idx: number) {
 /* ============================================================================
    Main component
 ============================================================================ */
-function ShopProductSectionInner() {
+function ShopProductSectionInner({ initialProductId }: { initialProductId?: ProductID }) {
   const { toast, toasts } = useToast();
-  const [selectedId, setSelectedId] = useState<ProductID>('detox-60');
+  const [selectedId, setSelectedId] = useState<ProductID>(initialProductId ?? 'detox-60');
   const [products, setProducts] = useState<Partial<Record<ProductID, ProductDocFromDb>>>({});
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -311,6 +311,10 @@ function ShopProductSectionInner() {
   const [open, setOpen] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
   const [useLocalFallback, setUseLocalFallback] = useState(false);
+
+  useEffect(() => {
+    if (initialProductId) setSelectedId(initialProductId);
+  }, [initialProductId]);
 
   // Load products
   const loadProducts = async () => {
