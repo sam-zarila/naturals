@@ -81,10 +81,70 @@ function IconChevron({ className }: { className?: string }) {
     </svg>
   );
 }
+function IconCart({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M3 3h2l2.5 11.5a2 2 0 0 0 2 1.5H16a2 2 0 0 0 2-1.5L20 6H6" strokeLinecap="round" />
+      <circle cx="10" cy="20" r="1" />
+      <circle cx="17" cy="20" r="1" />
+    </svg>
+  );
+}
+
+function readCartCount(): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const raw = localStorage.getItem('dn-cart');
+    if (!raw) return 0;
+    const items = JSON.parse(raw) as Array<{ id?: string; qty?: number }>;
+    if (!Array.isArray(items)) return 0;
+    return items.reduce((sum, it) => sum + (typeof it.qty === 'number' && it.qty > 0 ? it.qty : 0), 0);
+  } catch {
+    return 0;
+  }
+}
+
+function ShopCartLink() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setCount(readCartCount());
+    refresh();
+    window.addEventListener('cartUpdated', refresh);
+    window.addEventListener('cart:add', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('cartUpdated', refresh);
+      window.removeEventListener('cart:add', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+
+  const label = count > 99 ? '99+' : String(count);
+
+  return (
+    <Link
+      href="/cart"
+      className="relative inline-grid place-items-center w-10 h-10 rounded-2xl border bg-white text-emerald-800 shadow-sm hover:-translate-y-0.5 hover:shadow transition"
+      aria-label={`Shopping cart with ${count} items`}
+    >
+      <IconCart className="w-5 h-5" />
+      {count > 0 && (
+        <span
+          className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-[4px] rounded-full bg-emerald-600 text-white text-[10px] font-semibold leading-none grid place-items-center shadow ring-2 ring-white"
+          aria-hidden
+        >
+          {label}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 function BreadcrumbsHomeShop() {
   return (
     <nav aria-label="Breadcrumb" className="bg-gradient-to-b from-emerald-50/60 to-white border-b">
-      <div className="max-w-6xl mx-auto px-4 py-3">
+      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
         <ol className="flex flex-wrap items-center gap-1.5">
           <li>
             <Link
@@ -107,6 +167,7 @@ function BreadcrumbsHomeShop() {
             </span>
           </li>
         </ol>
+        <ShopCartLink />
       </div>
     </nav>
   );
@@ -138,14 +199,15 @@ type ProductDocFromDb = {
 ============================================================================ */
 const FALLBACK_GALLERIES: Record<ProductID, string[]> = {
   'detox-60': [
-    '/products/scalp-detox-60ml.png',
-    '/products/scalp-detox-60ml1.jpeg',
-    '/products/scalp-detox-60ml2.jpeg',
+    '/products/scalp-detox-oil-60ml.jpg',
+    '/api/products/detox-60/images/0',
+    '/logo.png',
   ],
   'growth-100': [
     '/products/hair-growth-oil-100ml.png',
-    '/hero/hair-growth-oil-100ml1.jpeg',
-    '/products/hair-growth-oil-100ml12.jpeg',
+    '/products/hair-growth-oil-100ml.jpeg',
+    '/api/products/growth-100/images/0',
+    '/logo.png',
   ],
 };
 

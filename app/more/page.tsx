@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useProducts } from '../lib/products';
 
 /* ================================
    Motion helper
@@ -189,6 +190,9 @@ function BreadcrumbsFancy({
 ================================= */
 export default function MoreInfoPage() {
   const activeSection = useSectionSpy(['growth-100', 'detox-60']);
+  const { products } = useProducts();
+  const growthPrice = products['growth-100']?.price;
+  const detoxPrice = products['detox-60']?.price;
   const sectionLabels: Record<string, string> = {
     'growth-100': 'Hair Growth Oil · 100ml',
     'detox-60': 'Scalp Detox Oil · 60ml',
@@ -260,7 +264,7 @@ export default function MoreInfoPage() {
         id="growth-100"
         badge="Best Seller"
         name="Hair Growth Oil · 100ml"
-        price="R300"
+        price={typeof growthPrice === 'number' ? `R${growthPrice.toLocaleString()}` : '—'}
         desc="A luxurious Ayurvedic-inspired blend that nourishes the scalp, strengthens strands, and supports a healthy growth cycle—perfect for thinning edges, postpartum shedding, and dry ends."
         image="/products/hair-growth-oil-100ml.jpeg"
         bullets={['Boosts growth', 'Seals in moisture', 'Strengthens ends', 'Adds shine']}
@@ -310,7 +314,7 @@ export default function MoreInfoPage() {
         id="detox-60"
         badge="Scalp Care"
         name="Scalp Detox Oil · 60ml"
-        price="R260"
+        price={typeof detoxPrice === 'number' ? `R${detoxPrice.toLocaleString()}` : '—'}
         desc="A clarifying, soothing pre-wash treatment that lifts buildup, balances oil, and refreshes between wash days—without stripping."
         image="/products/hair-growth-oil-100ml12.jpeg"
         bullets={['Clarifies gently', 'Balances oil', 'Soothes itchiness', 'Refreshes scalp']}

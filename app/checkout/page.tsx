@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { doc, getDoc, setDoc, collection, addDoc } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
 import { firestore } from "../lib/firebase-client";
+import { useProducts, type Product } from "../lib/products";
 
 /* ============================ Icons ============================ */
 function IconHome({ className }: { className?: string }) {
@@ -93,9 +94,9 @@ function ToastComponent({ toasts }: { toasts: Toast[] }) {
 }
 
 /* ============================ Types ============================ */
-type Product = { id: string; name: string; price: number; currency: "R"; img: string };
+type ProductLine = Product;
 type StoredCartItem = { id: string; qty: number };
-type ExpandedLine = Product & { qty: number; lineTotal: number };
+type ExpandedLine = ProductLine & { qty: number; lineTotal: number };
 
 interface CheckoutPayload {
   orderId?: string;
@@ -109,12 +110,6 @@ interface PaystackInitResponse {
   authorization_url: string;
   reference: string;
 }
-
-/* ============================ Catalog ============================ */
-const CATALOG: Record<string, Product> = {
-  "growth-100": { id: "growth-100", name: "Hair Growth Oil · 100ml", price: 300, currency: "R", img: "/products/hair-growth-oil-100ml.png" },
-  "detox-60": { id: "detox-60", name: "Scalp Detox Oil · 60ml", price: 260, currency: "R", img: "/products/scalp-detox-oil-60ml.png" },
-};
 
 /* ==================== Firestore & LocalStorage =================== */
 const USER_ID_KEY = "cart-user-id";
@@ -184,15 +179,8 @@ async function clearCartAfterCheckout(userId: string): Promise<void> {
 
 /* ========================== Shipping ========================== */
 const SHIPPING_OPTIONS = [
-  { value: "self-pickup", label: "Self Pickup" },
+  { value: "self-pickup", label: "Free Pickup" },
   { value: "the-courier-guy", label: "The Courier Guy" },
-  { value: "dhl-express", label: "DHL Express" },
-  { value: "fedex", label: "FedEx" },
-  { value: "aramex", label: "Aramex" },
-  { value: "fastway-couriers", label: "Fastway Couriers" },
-  { value: "ram-couriers", label: "RAM Couriers" },
-  { value: "dsv", label: "DSV" },
-  { value: "postnet", label: "PostNet" },
 ] as const;
 
 /* ========================= Provinces ========================= */
@@ -211,6 +199,7 @@ const PROVINCES = [
 /* ======================= Checkout Body ======================= */
 function CheckoutBody(): JSX.Element {
   const { toast, toasts } = useToast();
+  const { products, loading: productsLoading } = useProducts();
 
   const [userId, setUserId] = useState<string>("");
   const [items, setItems] = useState<StoredCartItem[]>([]);
@@ -232,8 +221,13 @@ function CheckoutBody(): JSX.Element {
   });
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof typeof formData, string>>>({});
 
-  const shipping = formData.shippingMethod === "self-pickup" ? 0 : 100;
-  const getShippingLabel = (method: string) => SHIPPING_OPTIONS.find(s => s.value === method)?.label ?? "Standard";
+  const shipping = !formData.shippingMethod
+    ? 0
+    : formData.shippingMethod === "self-pickup"
+      ? 0
+      : 100;
+  const getShippingLabel = (method: string) =>
+    SHIPPING_OPTIONS.find((s) => s.value === method)?.label ?? "Select option";
 
   // Load anonymous user & cart
   useEffect(() => {
@@ -262,17 +256,17 @@ function CheckoutBody(): JSX.Element {
     return () => window.removeEventListener("cartUpdated", handleCartUpdate);
   }, []);
 
-  // Expand items
+  // Expand items using live Firestore product prices
   const lines: ExpandedLine[] = useMemo(() => {
     return items
       .map((it) => {
-        const p = CATALOG[it.id];
+        const p = products[it.id];
         if (!p) return null;
         const qty = Math.max(1, it.qty);
         return { ...p, qty, lineTotal: qty * p.price };
       })
       .filter((x): x is ExpandedLine => Boolean(x));
-  }, [items]);
+  }, [items, products]);
 
   const subtotal = useMemo(() => lines.reduce((sum, l) => sum + l.lineTotal, 0), [lines]);
   const grandTotal = subtotal + shipping;
@@ -310,6 +304,14 @@ function CheckoutBody(): JSX.Element {
       toast({ title: "Error", description: "No user ID available.", variant: "destructive" });
       return;
     }
+    if (lines.length === 0) {
+      toast({ title: "Error", description: "Your cart is empty or product prices could not be loaded.", variant: "destructive" });
+      return;
+    }
+    if (lines.some((l) => !(l.price > 0))) {
+      toast({ title: "Error", description: "Product prices are still loading. Please try again.", variant: "destructive" });
+      return;
+    }
 
     setPayLoading(true);
     try {
@@ -317,7 +319,7 @@ function CheckoutBody(): JSX.Element {
       const ordersRef = collection(firestore, "orders");
       const orderData = {
         userId,
-        items,
+        items: lines.map(({ id, name, price, qty }) => ({ id, name, price, qty })),
         totals: { subtotal, shipping, grandTotal },
         status: "pending",
         customer: {
@@ -379,7 +381,7 @@ function CheckoutBody(): JSX.Element {
   }, [userId, items, lines, subtotal, shipping, grandTotal, formData, toast]);
 
   /* ============================ UI ============================ */
-  if (loading) {
+  if (loading || productsLoading) {
     return (
       <main className="bg-white min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -511,12 +513,21 @@ function CheckoutBody(): JSX.Element {
               <div>
                 <label htmlFor="shippingMethod" className="block text-sm font-medium text-emerald-950">Shipping Method *</label>
                 <select
-                  id="shippingMethod" name="shippingMethod" value={formData.shippingMethod} onChange={handleInputChange}
+                  id="shippingMethod"
+                  name="shippingMethod"
+                  value={formData.shippingMethod}
+                  onChange={handleInputChange}
+                  required
+                  aria-required="true"
                   className={`mt-1 block w-full rounded-xl border ${formErrors.shippingMethod ? "border-red-500" : "border-neutral-200"} p-2 text-sm`}
                 >
-                  <option value="">Select shipping method</option>
+                  <option value="" disabled>
+                    Select shipping method
+                  </option>
                   {SHIPPING_OPTIONS.map((service) => (
-                    <option key={service.value} value={service.value}>{service.label}</option>
+                    <option key={service.value} value={service.value}>
+                      {service.label}
+                    </option>
                   ))}
                 </select>
                 {formErrors.shippingMethod && <p className="mt-1 text-xs text-red-600">{formErrors.shippingMethod}</p>}
@@ -524,7 +535,7 @@ function CheckoutBody(): JSX.Element {
 
               {formData.shippingMethod === "self-pickup" && (
                 <div className="p-4 rounded-lg bg-emerald-50 text-emerald-800 text-sm">
-                  Self pickup is available at our store in Johannesburg. Please contact us for the exact address and pickup times.
+                  Free pickup is available at our store in Johannesburg. Please contact us for the exact address and pickup times.
                 </div>
               )}
 
@@ -612,7 +623,9 @@ function CheckoutBody(): JSX.Element {
                 <div className="text-emerald-950">R{subtotal.toLocaleString()}</div>
               </div>
               <div className="flex items-center justify-between">
-                <div className="text-emerald-900/80">Shipping ({getShippingLabel(formData.shippingMethod)})</div>
+                <div className="text-emerald-900/80">
+                  Shipping ({formData.shippingMethod ? getShippingLabel(formData.shippingMethod) : "Select option"})
+                </div>
                 <div className="text-emerald-950">R{shipping.toLocaleString()}</div>
               </div>
               <div className="border-t pt-2 flex items-center justify-between">

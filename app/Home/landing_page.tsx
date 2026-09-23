@@ -23,6 +23,7 @@ import React, {
 import { createPortal } from 'react-dom';
 import Head from 'next/head';
 import { firestore } from '../lib/firebase-client';
+import { resolveProductImg, productImageCandidates } from '../lib/products';
 import { collection, onSnapshot } from "firebase/firestore";
 
 /* =============================================================================
@@ -211,9 +212,9 @@ function CartProvider({ children }: { children: ReactNode }) {
           name: data.name || '',
           price: data.price || 0,
           currency: 'R',
-          img: data.gallery?.[0] || '/placeholder.png',
+          img: resolveProductImg(doc.id, Array.isArray(data.gallery) ? data.gallery : []),
           size: data.size || '',
-          gallery: data.gallery || [],
+          gallery: productImageCandidates(doc.id, Array.isArray(data.gallery) ? data.gallery : []),
         };
       });
       setProducts(prods);
@@ -224,58 +225,69 @@ function CartProvider({ children }: { children: ReactNode }) {
     const loadCart = () => {
       try {
         const cartRaw = localStorage.getItem('dn-cart');
-        console.log('Loaded cart from storage:', cartRaw ? JSON.parse(cartRaw) : 'null');
         if (cartRaw) {
           const cartData = JSON.parse(cartRaw) as Array<{ id: string; qty: number }>;
+          const productsReady = Object.keys(products).length > 0;
           const loadedItems: CartItem[] = [];
           for (const item of cartData) {
+            if (!item?.id || !(item.qty > 0)) continue;
             const product = products[item.id];
             if (product) {
               loadedItems.push({ ...product, qty: item.qty });
+            } else if (!productsReady) {
+              // Keep qty visible on the counter before product catalog hydrates
+              loadedItems.push({
+                id: item.id,
+                name: 'Product',
+                price: 0,
+                currency: 'R',
+                img: '/placeholder.png',
+                size: '',
+                gallery: [],
+                qty: item.qty,
+              });
             }
-          };
+          }
           setItems(loadedItems);
-          console.log('Set items to:', loadedItems);
         } else {
           setItems([]);
-          console.log('Set items to empty (no storage)');
         }
       } catch (error) {
         console.error('Error loading cart from localStorage:', error);
         localStorage.removeItem('dn-cart');
         setItems([]);
-        console.log('Set items to empty due to error');
       } finally {
         setIsInitialized(true);
       }
     };
-    loadCart(); // Initial load
-    // Listen for changes from other tabs/console
+    loadCart();
     const onStorageChange = (e: StorageEvent) => {
-      if (e.key === 'dn-cart') {
-        console.log('Storage change detected, reloading cart');
-        loadCart(); // Reload from storage if changed
-      }
+      if (e.key === 'dn-cart') loadCart();
     };
+    const onCartUpdated = () => loadCart();
     window.addEventListener('storage', onStorageChange);
-    return () => window.removeEventListener('storage', onStorageChange);
+    window.addEventListener('cartUpdated', onCartUpdated);
+    return () => {
+      window.removeEventListener('storage', onStorageChange);
+      window.removeEventListener('cartUpdated', onCartUpdated);
+    };
   }, [products]);
   // Save cart to localStorage whenever items change
   useEffect(() => {
     if (!isInitialized) return;
     try {
       if (items.length === 0) {
+        // Avoid wiping a real cart while the product catalog is still empty
+        if (Object.keys(products).length === 0 && localStorage.getItem('dn-cart')) return;
         localStorage.removeItem('dn-cart');
-        console.log('Removed dn-cart from storage (empty items)');
       } else {
         const cartToSave = items.map(item => ({ id: item.id, qty: item.qty }));
         localStorage.setItem('dn-cart', JSON.stringify(cartToSave));
-        console.log('Saved cart to storage:', cartToSave);
       }
     } catch (error) {
       console.error('Error saving cart to localStorage:', error);
     }
-  }, [items, isInitialized]);
+  }, [items, isInitialized, products]);
   const add = (id: string, qty = 1) => {
     const base = products[id] || {
       id,
@@ -291,29 +303,19 @@ function CartProvider({ children }: { children: ReactNode }) {
       const i = copy.findIndex((x) => x.id === id);
       if (i >= 0) copy[i] = { ...copy[i], qty: copy[i].qty + qty };
       else copy.push({ ...base, qty });
-      console.log('Added item, new items:', copy);
       return copy;
     });
   };
   const setQty = (id: string, qty: number) =>
-    setItems((prev) => {
-      const newItems = prev
+    setItems((prev) =>
+      prev
         .map((x) => (x.id === id ? { ...x, qty: Math.max(1, qty) } : x))
-        .filter((x) => x.qty > 0);
-      console.log('Set qty, new items:', newItems);
-      return newItems;
-    });
-  const remove = (id: string) => setItems((prev) => {
-    const newItems = prev.filter((x) => x.id !== id);
-    console.log('Removed item, new items:', newItems);
-    return newItems;
-  });
+        .filter((x) => x.qty > 0)
+    );
+  const remove = (id: string) => setItems((prev) => prev.filter((x) => x.id !== id));
   const clear = () => {
-    console.log('Clearing cart');
-    alert('Clearing cart!'); // Temporary alert to confirm click fires - remove after testing
-    localStorage.removeItem('dn-cart'); // Explicitly remove to ensure persistence is cleared
+    localStorage.removeItem('dn-cart');
     setItems([]);
-    console.log('Items after clear:', []);
   };
   const count = items.reduce((s, x) => s + x.qty, 0);
   const subtotal = items.reduce((s, x) => s + x.qty * x.price, 0);
@@ -731,20 +733,27 @@ function IconClose({ className }: { className?: string }) {
     </svg>
   );
 }
-/* Cart icon (with count + ping) - FIXED VERSION */
+/* Cart icon with live item counter badge */
 function CartIcon({ className }: { className?: string }) {
-  const cart = useCart(); // Use the cart context instead of localStorage
-  console.log('CartIcon render - Current count:', cart.count); // Debug log for icon render
+  const cart = useCart();
+  const countLabel = cart.count > 99 ? '99+' : String(cart.count);
   return (
-    <Link href="/cart" className="relative inline-grid place-items-center" aria-label={`Shopping cart with ${cart.count} items`}>
+    <Link
+      href="/cart"
+      className="relative inline-grid place-items-center p-1"
+      aria-label={`Shopping cart with ${cart.count} items`}
+    >
       <svg viewBox="0 0 24 24" fill="none" className={className}>
         <path d="M3 5h2l2 12h10l2-8H7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         <circle cx="10" cy="20" r="1.5" fill="currentColor" />
         <circle cx="17" cy="20" r="1.5" fill="currentColor" />
       </svg>
       {cart.count > 0 && (
-        <span className="absolute -top-2 -right-2 min-w-[20px] h-5 px-1 rounded-full bg-emerald-600 text-white text-[10px] grid place-items-center shadow">
-          {cart.count}
+        <span
+          className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-[4px] rounded-full bg-emerald-600 text-white text-[10px] font-semibold leading-none grid place-items-center shadow ring-2 ring-white"
+          aria-hidden
+        >
+          {countLabel}
         </span>
       )}
     </Link>

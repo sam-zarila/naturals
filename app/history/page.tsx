@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { v4 as uuidv4 } from "uuid";
 import Link from 'next/link';
 import { firestore } from '../lib/firebase-client';
+import { useProducts } from '../lib/products';
 
 /* ============================ Icons ============================ */
 function IconHome({ className }: { className?: string }) {
@@ -49,19 +50,6 @@ function IconChevron({ className }: { className?: string }) {
     </svg>
   );
 }
-
-/* ============================ Catalog ============================ */
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  currency: string;
-  img: string;
-}
-const CATALOG: Record<string, Product> = {
-  "growth-100": { id: "growth-100", name: "Hair Growth Oil · 100ml", price: 300, currency: "R", img: "/products/hair-growth-oil-100ml.png" },
-  "detox-60": { id: "detox-60", name: "Scalp Detox Oil · 60ml", price: 260, currency: "R", img: "/products/scalp-detox-oil-60ml.png" },
-};
 
 /* ============================= Toast ============================= */
 interface Toast {
@@ -117,22 +105,29 @@ function getAnonUserId(): string {
 }
 function getShippingLabel(method: string) {
   const SHIPPING_OPTIONS = [
-    { value: "self-pickup", label: "Self Pickup" },
+    { value: "self-pickup", label: "Free Pickup" },
     { value: "the-courier-guy", label: "The Courier Guy" },
-    { value: "dhl-express", label: "DHL Express" },
-    { value: "fedex", label: "FedEx" },
-    { value: "aramex", label: "Aramex" },
-    { value: "fastway-couriers", label: "Fastway Couriers" },
-    { value: "ram-couriers", label: "RAM Couriers" },
-    { value: "dsv", label: "DSV" },
-    { value: "postnet", label: "PostNet" },
   ];
   return SHIPPING_OPTIONS.find(s => s.value === method)?.label ?? 'Standard';
+}
+
+type OrderLine = { id: string; qty: number; name?: string; price?: number };
+
+function resolveOrderLine(
+  item: OrderLine,
+  products: Record<string, { name: string; price: number }>
+) {
+  const catalog = products[item.id];
+  const name = item.name || catalog?.name || `Product ${item.id}`;
+  const unitPrice =
+    typeof item.price === "number" ? item.price : catalog?.price ?? 0;
+  return { name, unitPrice, lineTotal: unitPrice * item.qty };
 }
 
 /* ======================== Order History Body ======================== */
 function OrderHistoryBody() {
   const { toast, toasts } = useToast();
+  const { products } = useProducts();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -278,13 +273,12 @@ function OrderHistoryBody() {
                   <div className="mb-4">
                     <h3 className="font-medium text-emerald-950 mb-2">Items:</h3>
                     <ul className="space-y-2">
-                      {(order.items || []).map((item: { id: string; qty: number }) => {
-                        const product = CATALOG[item.id];
-                        const line = product ? product.price * item.qty : 0;
+                      {(order.items || []).map((item: OrderLine) => {
+                        const { name, lineTotal } = resolveOrderLine(item, products);
                         return (
                           <li key={item.id} className="flex justify-between text-sm text-emerald-900/80">
-                            <span>{product ? product.name : `Product ${item.id}`} × {item.qty}</span>
-                            <span>R{line.toLocaleString()}</span>
+                            <span>{name} × {item.qty}</span>
+                            <span>R{lineTotal.toLocaleString()}</span>
                           </li>
                         );
                       })}

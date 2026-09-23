@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import {
   doc,
   getDoc,
@@ -10,18 +9,21 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 import {
-  getAuth,
   onAuthStateChanged,
   User,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  sendPasswordResetEmail,
   setPersistence,
-  inMemoryPersistence,
+  browserLocalPersistence,
 } from 'firebase/auth';
 import type { FirebaseError } from 'firebase/app';
-import { firestore } from '../lib/firebase-client';
+import { firestore, auth as sharedAuth } from '../lib/firebase-client';
+import { useProducts, productImageCandidates, PRODUCT_FALLBACK_IMG, type Product } from '../lib/products';
 import { motion, AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -119,6 +121,10 @@ const FRIENDLY_AUTH_MESSAGES: Record<string, string> = {
   'auth/network-request-failed': 'Network error. Check your connection and try again.',
   'auth/popup-closed-by-user': 'The sign-in popup was closed before completing.',
   'auth/popup-blocked': 'The sign-in popup was blocked by your browser.',
+  'auth/cancelled-popup-request': 'Sign-in was cancelled. Please try again.',
+  'auth/unauthorized-domain': 'This domain is not authorized for Google sign-in in Firebase Console.',
+  'auth/account-exists-with-different-credential': 'An account already exists with this email using a different sign-in method.',
+  'auth/missing-email': 'Please enter your email address.',
   'EMAIL_NOT_FOUND': 'No account exists with that email.',
   'INVALID_PASSWORD': 'Incorrect password. Please try again.',
   'USER_DISABLED': 'This account has been disabled.',
@@ -158,6 +164,8 @@ function formatFirebaseAuthError(e: unknown) {
 }
 
 /* ========================= Auth Modal ========================= */
+type AuthMode = 'login' | 'signup' | 'reset';
+
 function AuthModal({
   onClose,
   initialLogin = true,
@@ -169,45 +177,68 @@ function AuthModal({
 }) {
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
-  const [isLogin, setIsLogin] = useState(initialLogin);
+  const [mode, setMode] = useState<AuthMode>(initialLogin ? 'login' : 'signup');
   const [authLoading, setAuthLoading] = useState(false);
-  const [auth, setAuth] = useState<any>(null);
+  const auth = sharedAuth;
 
   useEffect(() => {
-    const boot = async () => {
+    (async () => {
       try {
-        const authInstance = getAuth(firestore.app);
-        await setPersistence(authInstance, inMemoryPersistence);
-        setAuth(authInstance);
+        await setPersistence(auth, browserLocalPersistence);
       } catch (err) {
-        console.error('Failed to init Firebase Auth:', err);
-        toast({ title: 'Error', description: 'Failed to initialize authentication.', variant: 'destructive' });
+        console.error('Failed to set auth persistence:', err);
       }
-    };
-    boot();
-  }, [toast]);
+    })();
+  }, [auth]);
+
+  // Complete Google redirect sign-in if popup was blocked earlier
+  useEffect(() => {
+    (async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result?.user) {
+          toast({ title: 'Success', description: 'Logged in with Google.' });
+          onClose();
+        }
+      } catch (e) {
+        const info = formatFirebaseAuthError(e);
+        toast({ title: info.title, description: info.description, variant: 'destructive' });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth]);
 
   const handleAuth = async () => {
-    if (!auth) {
-      toast({ title: 'Error', description: 'Authentication not initialized.', variant: 'destructive' });
+    if (!authEmail.trim()) {
+      toast({ title: 'Error', description: 'Please enter your email.', variant: 'destructive' });
       return;
     }
-    if (!authEmail || !authPassword) {
+    if (mode !== 'reset' && !authPassword) {
       toast({ title: 'Error', description: 'Please enter email and password.', variant: 'destructive' });
       return;
     }
     setAuthLoading(true);
     try {
-      if (isLogin) {
-        await signInWithEmailAndPassword(auth, authEmail, authPassword);
+      if (mode === 'login') {
+        await signInWithEmailAndPassword(auth, authEmail.trim(), authPassword);
         toast({ title: 'Success', description: 'Logged in successfully.' });
-      } else {
-        await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+        setAuthEmail('');
+        setAuthPassword('');
+        onClose();
+      } else if (mode === 'signup') {
+        await createUserWithEmailAndPassword(auth, authEmail.trim(), authPassword);
         toast({ title: 'Success', description: 'Registration successful.' });
+        setAuthEmail('');
+        setAuthPassword('');
+        onClose();
+      } else {
+        await sendPasswordResetEmail(auth, authEmail.trim());
+        toast({
+          title: 'Reset email sent',
+          description: 'Check your inbox for a password reset link.',
+        });
+        setMode('login');
       }
-      setAuthEmail('');
-      setAuthPassword('');
-      onClose();
     } catch (e) {
       const info = formatFirebaseAuthError(e);
       toast({ title: info.title, description: info.description, variant: 'destructive' });
@@ -217,15 +248,28 @@ function AuthModal({
   };
 
   const handleGoogle = async () => {
-    if (!auth) {
-      toast({ title: 'Error', description: 'Authentication not initialized.', variant: 'destructive' });
-      return;
-    }
     setAuthLoading(true);
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
-      toast({ title: 'Success', description: 'Logged in with Google.' });
-      onClose();
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      try {
+        await signInWithPopup(auth, provider);
+        toast({ title: 'Success', description: 'Logged in with Google.' });
+        onClose();
+      } catch (popupErr) {
+        const code = (popupErr as FirebaseError)?.code || '';
+        // Fall back to full-page redirect when popup is blocked or cancelled
+        if (
+          code === 'auth/popup-blocked' ||
+          code === 'auth/cancelled-popup-request' ||
+          code === 'auth/popup-closed-by-user'
+        ) {
+          toast({ title: 'Redirecting…', description: 'Continuing Google sign-in in this window.' });
+          await signInWithRedirect(auth, provider);
+          return;
+        }
+        throw popupErr;
+      }
     } catch (e) {
       const info = formatFirebaseAuthError(e);
       toast({ title: info.title, description: info.description, variant: 'destructive' });
@@ -234,10 +278,28 @@ function AuthModal({
     }
   };
 
+  const title =
+    mode === 'login' ? 'Log In Required' : mode === 'signup' ? 'Sign Up Required' : 'Forgot Password';
+  const subtitle =
+    mode === 'login'
+      ? 'You must log in to continue.'
+      : mode === 'signup'
+        ? 'You must sign up to continue.'
+        : 'Enter your email and we will send a reset link.';
+  const primaryLabel =
+    authLoading
+      ? 'Processing...'
+      : mode === 'login'
+        ? 'Log In'
+        : mode === 'signup'
+          ? 'Sign Up'
+          : 'Send Reset Link';
+
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={onClose}
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
@@ -245,11 +307,17 @@ function AuthModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-emerald-950">
-            {isLogin ? 'Log In Required' : 'Sign Up Required'}
-          </h2>
+          <h2 className="text-2xl font-bold text-emerald-950">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-emerald-700/70 hover:text-emerald-900 text-xl leading-none px-1"
+            aria-label="Close"
+          >
+            ×
+          </button>
         </div>
-        <p className="text-emerald-900/70 mb-6">You must {isLogin ? 'log in' : 'sign up'} to continue.</p>
+        <p className="text-emerald-900/70 mb-6">{subtitle}</p>
         <div className="space-y-4">
           <div>
             <label htmlFor="auth-email" className="block text-sm font-medium text-emerald-950">Email</label>
@@ -260,50 +328,115 @@ function AuthModal({
               onChange={(e) => setAuthEmail(e.target.value)}
               className="mt-1 block w-full rounded-xl border border-neutral-200 p-2 text-sm"
               placeholder="Enter your email"
+              autoComplete="email"
             />
           </div>
-          <div>
-            <label htmlFor="auth-password" className="block text-sm font-medium text-emerald-950">Password</label>
-            <input
-              id="auth-password"
-              type="password"
-              value={authPassword}
-              onChange={(e) => setAuthPassword(e.target.value)}
-              className="mt-1 block w-full rounded-xl border border-neutral-200 p-2 text-sm"
-              placeholder="Enter your password"
-            />
-          </div>
+          {mode !== 'reset' && (
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor="auth-password" className="block text-sm font-medium text-emerald-950">Password</label>
+                {mode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => setMode('reset')}
+                    className="text-xs text-emerald-700 hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+              <input
+                id="auth-password"
+                type="password"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                className="mt-1 block w-full rounded-xl border border-neutral-200 p-2 text-sm"
+                placeholder="Enter your password"
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              />
+            </div>
+          )}
           <button
+            type="button"
             onClick={handleAuth}
-            disabled={authLoading || !auth}
+            disabled={authLoading}
             className="w-full rounded-2xl px-6 py-3 bg-emerald-600 text-white font-medium shadow hover:bg-emerald-700 disabled:opacity-50"
           >
-            {authLoading ? 'Processing...' : isLogin ? 'Log In' : 'Sign Up'}
+            {primaryLabel}
           </button>
-          <button onClick={() => setIsLogin(!isLogin)} className="w-full text-sm text-emerald-700 hover:underline">
-            {isLogin ? 'Need an account? Sign up' : 'Have an account? Log in'}
-          </button>
-          <button
-            onClick={handleGoogle}
-            disabled={authLoading || !auth}
-            className="w-full rounded-2xl px-6 py-3 border text-emerald-950 hover:bg-emerald-50"
-          >
-            Log in with Google
-          </button>
+          {mode === 'reset' ? (
+            <button
+              type="button"
+              onClick={() => setMode('login')}
+              className="w-full text-sm text-emerald-700 hover:underline"
+            >
+              Back to log in
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
+              className="w-full text-sm text-emerald-700 hover:underline"
+            >
+              {mode === 'login' ? 'Need an account? Sign up' : 'Have an account? Log in'}
+            </button>
+          )}
+          {mode !== 'reset' && (
+            <button
+              type="button"
+              onClick={handleGoogle}
+              disabled={authLoading}
+              className="w-full rounded-2xl px-6 py-3 border border-neutral-300 text-emerald-950 hover:bg-emerald-50 disabled:opacity-50"
+            >
+              Log in with Google
+            </button>
+          )}
         </div>
       </motion.div>
     </motion.div>
   );
 }
 
-/* ========================= Types & Catalog ========================= */
-type Product = { id: string; name: string; price: number; currency: string; img: string };
+/* ========================= Types ========================= */
 type CartItem = Product & { qty: number };
 
-const CATALOG: Record<string, Product> = {
-  'growth-100': { id: 'growth-100', name: 'Hair Growth Oil · 100ml', price: 300, currency: 'R', img: '/products/hair-growth-oil-100ml.png' },
-  'detox-60': { id: 'detox-60', name: 'Scalp Detox Oil · 60ml', price: 260, currency: 'R', img: '/products/scalp-detox-oil-60ml.png' },
-};
+function CartProductImage({ item }: { item: CartItem }) {
+  // Always prefer the known local public file first — DB gallery URLs are often broken
+  const candidates = Array.from(
+    new Set(
+      [
+        PRODUCT_FALLBACK_IMG[item.id],
+        item.img,
+        ...(item.gallery || []),
+        ...productImageCandidates(item.id),
+        '/logo.png',
+      ].filter((u): u is string => typeof u === 'string' && u.trim().length > 0)
+    )
+  );
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [item.id]);
+
+  const src = candidates[Math.min(index, Math.max(candidates.length - 1, 0))] || '/logo.png';
+
+  return (
+    // Native img avoids next/image + trailingSlash quirks that break cart thumbs
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      key={`${item.id}-${index}-${src}`}
+      src={src}
+      alt={item.name}
+      width={80}
+      height={80}
+      className="w-20 h-20 rounded-xl object-contain border border-emerald-100 bg-white shrink-0"
+      onError={() => {
+        setIndex((i) => (i + 1 < candidates.length ? i + 1 : i));
+      }}
+    />
+  );
+}
 
 /* ========================= Cart helpers ========================= */
 const USER_ID_KEY = 'cart-user-id';
@@ -342,22 +475,28 @@ export default function CartPage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const { toast, toasts } = useToast();
-  const [auth, setAuth] = useState<any>(null);
+  const auth = sharedAuth;
   const unsubscribeRef = useRef<(() => void) | undefined>(undefined);
+  const { products, loading: productsLoading } = useProducts();
+  const productsRef = useRef(products);
+  productsRef.current = products;
 
-  // Init Auth with in-memory persistence
+  // Persist auth across reloads + finish Google redirect sign-in
   useEffect(() => {
     (async () => {
       try {
-        const authInstance = getAuth(firestore.app);
-        await setPersistence(authInstance, inMemoryPersistence);
-        setAuth(authInstance);
+        await setPersistence(auth, browserLocalPersistence);
+        const result = await getRedirectResult(auth);
+        if (result?.user) {
+          toast({ title: 'Success', description: 'Logged in with Google.' });
+        }
       } catch (err) {
         console.error('Failed to initialize Firebase Auth (page):', err);
-        toast({ title: 'Error', description: 'Failed to initialize authentication.', variant: 'destructive' });
+        const info = formatFirebaseAuthError(err);
+        toast({ title: info.title, description: info.description, variant: 'destructive' });
       }
     })();
-  }, [toast]);
+  }, [auth, toast]);
 
   // Reconcile anonymous cart → user cart after login
   const reconcileCarts = useCallback(
@@ -438,16 +577,20 @@ export default function CartPage() {
         ref,
         (snap) => {
           const items = snap.exists() ? parseCart((snap.data() as any).items) : [];
-          const expanded: CartItem[] = items.map((it) => ({
-            ...(CATALOG[it.id] || {
+          const catalog = productsRef.current;
+          const expanded: CartItem[] = items.map((it) => {
+            const p = catalog[it.id];
+            if (p) return { ...p, qty: it.qty };
+            return {
               id: it.id,
               name: `Product ${it.id}`,
-              price: it.id === 'growth-100' ? 300 : 260,
-              currency: 'R',
-              img: '/products/hair-growth-oil-100ml.png',
-            }),
-            qty: it.qty,
-          }));
+              price: 0,
+              currency: 'R' as const,
+              img: productImageCandidates(it.id)[0],
+              gallery: productImageCandidates(it.id),
+              qty: it.qty,
+            };
+          });
           setCartItems(expanded);
           setLoading(false);
           setShowAuthModal(false);
@@ -467,6 +610,18 @@ export default function CartPage() {
       unsubAuth();
     };
   }, [auth, reconcileCarts, toast]);
+
+  // Re-price cart lines whenever Firestore product prices change
+  useEffect(() => {
+    if (productsLoading || Object.keys(products).length === 0) return;
+    setCartItems((prev) =>
+      prev.map((it) => {
+        const p = products[it.id];
+        if (!p) return it;
+        return { ...it, name: p.name, price: p.price, img: p.img, currency: p.currency, gallery: p.gallery };
+      })
+    );
+  }, [products, productsLoading]);
 
   // Also refresh if another page dispatches a custom event (legacy flow)
   useEffect(() => {
@@ -699,10 +854,10 @@ export default function CartPage() {
                       transition={{ duration: 0.3 }}
                       className="p-4 sm:p-6 flex items-center gap-4 border-b border-emerald-100 last:border-b-0"
                     >
-                      <Image src={item.img} alt={item.name} width={80} height={80} className="rounded-xl object-contain border border-emerald-100" />
+                      <CartProductImage item={item} />
                       <div className="flex-1">
                         <h3 className="font-semibold text-emerald-900 text-lg">{item.name}</h3>
-                        <p className="text-emerald-700">{item.currency} {(item.price ?? 0).toLocaleString('en-ZA')}</p>
+                        <p className="text-emerald-700">R{(item.price ?? 0).toLocaleString('en-ZA')}</p>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="flex items-center rounded-xl border border-emerald-200 bg-white shadow-sm">
@@ -724,7 +879,7 @@ export default function CartPage() {
                           </motion.button>
                         </div>
                         <div className="w-20 text-right font-semibold text-emerald-900">
-                          {item.currency} {((item.price ?? 0) * item.qty).toLocaleString('en-ZA')}
+                          R{((item.price ?? 0) * item.qty).toLocaleString('en-ZA')}
                         </div>
                         <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                           onClick={() => removeItem(item.id)}
@@ -747,7 +902,7 @@ export default function CartPage() {
               <h2 className="text-xl font-semibold text-emerald-900 mb-4">Order Summary</h2>
               <div className="flex justify-between items-center mb-4">
                 <span className="text-emerald-700">Subtotal ({totalItems} {totalItems === 1 ? 'item' : 'items'}):</span>
-                <span className="text-lg font-semibold text-emerald-900">R {subtotal.toLocaleString('en-ZA')}</span>
+                <span className="text-lg font-semibold text-emerald-900">R{subtotal.toLocaleString('en-ZA')}</span>
               </div>
               <div className="border-t border-emerald-100 pt-4 mb-4">
                 <p className="text-sm text-emerald-600 flex items-center gap-2">
