@@ -42,7 +42,7 @@ const LandingSEO = () => {
       logo: `${siteUrl}/logo.png`,
       description: 'Premium natural hair care products including Hair Growth Oil and Scalp Detox Oil made with organic Botanicals.',
       telephone: '+27-67-294-3837',
-      email: 'hello@delightfulnaturals.co.za',
+      email: 'info@delightfulnaturals.co.za',
       address: {
         '@type': 'PostalAddress',
         addressCountry: 'South Africa'
@@ -1798,7 +1798,7 @@ function ContactSection() {
 function SupportSection() {
   const cards = [
     { t: 'Shipping & Delivery', d: 'Typical delivery in 2–4 business days. We will share courier options for your area at checkout.', icon: '🚚', link: '#faqs' },
-    { t: 'Returns & Exchanges', d: 'Unopened items within 14 days. If something is wrong, we will make it right — just reach out.', icon: '↩️', link: 'mailto:hello@delightfulnaturals.co.za' },
+    { t: 'Returns & Exchanges', d: 'Unopened items within 14 days. If something is wrong, we will make it right — just reach out.', icon: '↩️', link: 'mailto:info@delightfulnaturals.co.za' },
     { t: 'Order Help', d: 'Need to change your address or track a parcel? Message us on WhatsApp and we will assist.', icon: '💬', link: 'https://wa.me/27672943837' },
   ];
   return (
@@ -1973,7 +1973,7 @@ function Footer() {
             <p className="text-emerald-200">
               Phone: <a href="tel:+27672943837" className="underline hover:text-emerald-100 transition" itemProp="telephone">+27 67 294 3837</a>
               <br />
-              Email: <a href="mailto:hello@delightfulnaturals.co.za" className="underline hover:text-emerald-100 transition" itemProp="email">hello@delightfulnaturals.co.za</a>
+              Email: <a href="mailto:info@delightfulnaturals.co.za" className="underline hover:text-emerald-100 transition" itemProp="email">info@delightfulnaturals.co.za</a>
             </p>
           </motion.div>
         </div>

@@ -535,7 +535,7 @@ function CheckoutBody(): JSX.Element {
 
               {formData.shippingMethod === "self-pickup" && (
                 <div className="p-4 rounded-lg bg-emerald-50 text-emerald-800 text-sm">
-                  Free pickup is available at our store in Johannesburg. Please contact us for the exact address and pickup times.
+                  Free pickup is available at our store in Cape Town. Please contact us for the exact address and pickup times.
                 </div>
               )}
 
