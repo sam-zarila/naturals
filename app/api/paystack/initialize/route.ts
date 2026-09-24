@@ -37,6 +37,9 @@ export async function POST(req: Request) {
       currency: 'ZAR',
       reference,
       callback_url: `${origin}/checkout/confirm`,
+      // South Africa checkout methods. Paystack only shows a channel if it is
+      // also enabled on the business (Dashboard → Settings → Preferences → Payments).
+      channels: ['card', 'eft', 'qr', 'capitec_pay', 'apple_pay'],
       metadata: {
         name: body.name || '',
         phone: body.phone || '',
