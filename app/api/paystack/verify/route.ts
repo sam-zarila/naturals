@@ -9,7 +9,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ message: 'Missing reference' }, { status: 400 });
     }
 
-    const PAYSTACK_SECRET = 'sk_live_ad06df732247dbe8a8167af0dac027ca760cdeae';
+   const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
 
     const res = await fetch(
       `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
