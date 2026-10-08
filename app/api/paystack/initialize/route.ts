@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     }
 
     
-    const PAYSTACK_SECRET = 'sk_live_ad06df732247dbe8a8167af0dac027ca760cdeae';
+    const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
 
     // amount must be in the **lowest denomination** (ZAR cents)
     const amountCents = Math.round(body.amountZar * 100);
