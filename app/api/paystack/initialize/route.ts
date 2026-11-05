@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 
 type InitBody = {
+  orderId?: string;
   email: string;
   amountZar: number;   // grand total in ZAR
   name?: string;
@@ -41,6 +42,7 @@ export async function POST(req: Request) {
       // finished activating (EFT and Capitec Pay need KYC). Omitting it lets
       // checkout use Settings → Preferences → Payments (Card, QR, Apple Pay, …).
       metadata: {
+        orderId: body.orderId || '',
         name: body.name || '',
         phone: body.phone || '',
         cart: body.cart || [],
